@@ -3,4 +3,5 @@
   <Project Path="Kolaytik.Blazor/Kolaytik.Blazor.csproj" />
   <Project Path="Kolaytik.Core/Kolaytik.Core.csproj" />
   <Project Path="Kolaytik.Infrastructure/Kolaytik.Infrastructure.csproj" />
+  <Project Path="Kolaytik.Tests/Kolaytik.Tests.csproj" />
 </Solution>

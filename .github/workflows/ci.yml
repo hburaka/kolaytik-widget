@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: dotnet build Kolaytik.slnx -c Release --no-restore
 
+      - name: Test
+        run: dotnet test Kolaytik.slnx -c Release --no-build --logger "console;verbosity=minimal"
+
   # ── Docker Build ────────────────────────────────────────────────────────────
   docker:
     name: Docker Build

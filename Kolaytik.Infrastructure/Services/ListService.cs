@@ -1,15 +1,15 @@
-using System.Text.RegularExpressions;
 using Kolaytik.Core.DTOs.Common;
 using Kolaytik.Core.DTOs.List;
 using Kolaytik.Core.Entities;
 using Kolaytik.Core.Enums;
 using Kolaytik.Core.Interfaces.Services;
 using Kolaytik.Infrastructure.Data;
+using Kolaytik.Infrastructure.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace Kolaytik.Infrastructure.Services;
 
-public partial class ListService : IListService
+public class ListService : IListService
 {
     private readonly ApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
@@ -455,7 +455,7 @@ public partial class ListService : IListService
 
     private async Task<string> GenerateUniqueSlugAsync(string name, Guid tenantId, Guid? excludeListId = null)
     {
-        var baseSlug = ToSlug(name);
+        var baseSlug = SlugHelper.ToSlug(name);
         var slug = baseSlug;
         var attempt = 0;
 
@@ -471,19 +471,6 @@ public partial class ListService : IListService
             attempt++;
             slug = $"{baseSlug}-{attempt}";
         }
-    }
-
-    private static string ToSlug(string name)
-    {
-        var s = name.ToLowerInvariant();
-        s = s.Replace('ı', 'i').Replace('ğ', 'g').Replace('ü', 'u')
-             .Replace('ş', 's').Replace('ö', 'o').Replace('ç', 'c')
-             .Replace('İ', 'i').Replace('Ğ', 'g').Replace('Ü', 'u')
-             .Replace('Ş', 's').Replace('Ö', 'o').Replace('Ç', 'c');
-        s = NonAlphanumericRegex().Replace(s, "");
-        s = MultiSpaceRegex().Replace(s, "-");
-        s = MultiDashRegex().Replace(s, "-").Trim('-');
-        return s.Length > 80 ? s[..80].TrimEnd('-') : s;
     }
 
     private static ListDetailResponse ToDetailResponse(Core.Entities.List l) => new()
@@ -514,10 +501,4 @@ public partial class ListService : IListService
         UpdatedAt = i.UpdatedAt
     };
 
-    [GeneratedRegex(@"[^a-z0-9\s-]")]
-    private static partial Regex NonAlphanumericRegex();
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex MultiSpaceRegex();
-    [GeneratedRegex(@"-+")]
-    private static partial Regex MultiDashRegex();
 }
