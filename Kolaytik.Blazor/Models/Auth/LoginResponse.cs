@@ -9,5 +9,5 @@ public class LoginResponse
     public DateTime? ExpiresAt { get; set; }
     public Guid UserId { get; set; }
     public string Email { get; set; } = string.Empty;
-    public int Role { get; set; }
+    public string Role { get; set; } = string.Empty;
 }
