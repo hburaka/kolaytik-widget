@@ -1,0 +1,120 @@
+@page "/auth/setup-2fa"
+@layout EmptyLayout
+@attribute [Authorize]
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+
+<PageTitle>2FA Kurulumu — Kolaytik</PageTitle>
+
+<MudGrid Justify="Justify.Center" Style="min-height:100vh; align-items:center;">
+    <MudItem xs="12" sm="7" md="5">
+        <MudCard Elevation="4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Align="Align.Center">İki Faktörlü Doğrulama Kurulumu</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+                        Hesabınız için 2FA zorunludur.
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+                }
+                @if (_success)
+                {
+                    <MudAlert Severity="Severity.Success" Class="mb-3">
+                        2FA başarıyla etkinleştirildi! Yönlendiriliyorsunuz...
+                    </MudAlert>
+                }
+                else if (_setup is null)
+                {
+                    <div class="d-flex justify-center">
+                        <MudProgressCircular Indeterminate="true" />
+                    </div>
+                }
+                else
+                {
+                    <MudText Class="mb-2">
+                        <strong>1.</strong> Google Authenticator veya Authy uygulamasını açın.
+                    </MudText>
+                    <MudText Class="mb-3">
+                        <strong>2.</strong> Aşağıdaki kodu manuel olarak ekleyin veya QR bağlantısını kullanın:
+                    </MudText>
+
+                    <MudPaper Elevation="0" Class="pa-3 mb-3" Style="background:#f5f5f5; border-radius:8px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Gizli Anahtar</MudText>
+                        <MudText Typo="Typo.body1" Style="font-family:monospace; word-break:break-all;">
+                            @_setup.Secret
+                        </MudText>
+                    </MudPaper>
+
+                    <MudAlert Severity="Severity.Info" Class="mb-4" Dense="true">
+                        Uygulamada "Hesap ekle" → "Kurulum anahtarını gir" seçeneğini kullanın.
+                        Hesap adı: <strong>Kolaytik</strong>
+                    </MudAlert>
+
+                    <MudText Class="mb-2">
+                        <strong>3.</strong> Uygulamadaki 6 haneli kodu girin:
+                    </MudText>
+                    <MudTextField @bind-Value="_code" Label="Doğrulama Kodu" Variant="Variant.Outlined"
+                                  FullWidth="true" Class="mb-4" MaxLength="6"
+                                  Placeholder="123456" InputType="InputType.Number" />
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                               OnClick="ConfirmAsync" Disabled="_loading">
+                        @if (_loading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Doğrula ve Etkinleştir
+                    </MudButton>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private TwoFactorSetupResponse? _setup;
+    private string _code = string.Empty;
+    private string _error = string.Empty;
+    private bool _loading;
+    private bool _success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _setup = await AuthService.Setup2faAsync();
+        if (_setup is null)
+            _error = "Setup başlatılamadı. Lütfen tekrar giriş yapın.";
+    }
+
+    private async Task ConfirmAsync()
+    {
+        _error = string.Empty;
+        _loading = true;
+        try
+        {
+            var ok = await AuthService.Confirm2faAsync(_code);
+            if (ok)
+            {
+                _success = true;
+                await Task.Delay(1500);
+                Nav.NavigateTo("/");
+            }
+            else
+            {
+                _error = "Geçersiz kod. Uygulamadaki güncel kodu girin.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Hata: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

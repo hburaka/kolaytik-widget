@@ -8,4 +8,6 @@ public interface IAuthService
     Task<LoginResponse?> Verify2faAsync(Verify2faRequest request);
     Task LogoutAsync();
     Task<bool> ChangePasswordAsync(ChangePasswordRequest request);
+    Task<TwoFactorSetupResponse?> Setup2faAsync();
+    Task<bool> Confirm2faAsync(string totpCode);
 }

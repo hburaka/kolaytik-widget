@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(dotnet build:*)",
+      "Bash(ls:*)",
+      "Bash(dotnet ef:*)",
+      "Bash(pg_isready:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(sed:*)",
+      "Bash(dotnet:*)",
+      "Bash(curl:*)",
+      "Bash(Start-Sleep:*)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}

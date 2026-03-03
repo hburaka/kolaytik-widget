@@ -67,9 +67,9 @@ public class AuthService : IAuthService
         if (user.Tenant is not null && user.Tenant.Status != TenantStatus.Active)
             throw new UnauthorizedAccessException("Firmanızın hesabı askıya alınmış. Destek ekibiyle iletişime geçin.");
 
-        // 2FA gerekli mi?
-        bool requires2fa = RequiredTwoFaRoles.Contains(user.Role)
-                           || user.Is2faEnabled;
+        // 2FA gerekli mi? Sadece secret kurulmuşsa zorunlu tut.
+        // Kurulmamışsa admin giriş yapabilir, panel setup sayfasına yönlendirir.
+        bool requires2fa = user.Is2faEnabled;
 
         if (requires2fa)
         {
@@ -260,7 +260,8 @@ public class AuthService : IAuthService
             UserId = user.Id,
             Email = user.Email,
             Role = user.Role,
-            Requires2fa = false
+            Requires2fa = false,
+            MustSetup2fa = RequiredTwoFaRoles.Contains(user.Role) && !user.Is2faEnabled
         };
     }
 

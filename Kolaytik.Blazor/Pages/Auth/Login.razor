@@ -67,6 +67,12 @@
                 return;
             }
 
+            if (result.MustSetup2fa)
+            {
+                Nav.NavigateTo("/auth/setup-2fa");
+                return;
+            }
+
             Nav.NavigateTo("/");
         }
         catch (Exception ex)

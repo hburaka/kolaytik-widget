@@ -76,6 +76,31 @@ public class AuthService : IAuthService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<TwoFactorSetupResponse?> Setup2faAsync()
+    {
+        var token = await _localStorage.GetItemAsStringAsync("accessToken");
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/auth/setup-2fa");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _http.SendAsync(request);
+        if (!response.IsSuccessStatusCode) return null;
+
+        var json = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<ApiResponse<TwoFactorSetupResponse>>(json, JsonOptions);
+        return result?.Data;
+    }
+
+    public async Task<bool> Confirm2faAsync(string totpCode)
+    {
+        var token = await _localStorage.GetItemAsStringAsync("accessToken");
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/auth/confirm-2fa");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { totpCode });
+
+        var response = await _http.SendAsync(request);
+        return response.IsSuccessStatusCode;
+    }
+
     private async Task PersistLoginAsync(LoginResponse loginResponse)
     {
         await _localStorage.SetItemAsStringAsync("accessToken", loginResponse.AccessToken!);
