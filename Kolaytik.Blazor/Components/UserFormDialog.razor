@@ -1,0 +1,50 @@
+<MudDialog>
+    <DialogContent>
+        @if (!IsEdit)
+        {
+            <MudTextField @bind-Value="Model!.Email" Label="E-mail" InputType="InputType.Email"
+                          Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            <MudTextField @bind-Value="Model.Password" Label="Şifre" InputType="InputType.Password"
+                          Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+            <MudSelect @bind-Value="Model.Role" Label="Rol" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+                <MudSelectItem Value="@("TenantAdmin")">TenantAdmin</MudSelectItem>
+                <MudSelectItem Value="@("BranchManager")">BranchManager</MudSelectItem>
+                <MudSelectItem Value="@("BranchUser")">BranchUser</MudSelectItem>
+            </MudSelect>
+        }
+        else
+        {
+            <MudSelect @bind-Value="UpdateModel!.Role" Label="Rol" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+                <MudSelectItem Value="@("TenantAdmin")">TenantAdmin</MudSelectItem>
+                <MudSelectItem Value="@("BranchManager")">BranchManager</MudSelectItem>
+                <MudSelectItem Value="@("BranchUser")">BranchUser</MudSelectItem>
+            </MudSelect>
+            <MudSelect @bind-Value="UpdateModel.Status" Label="Durum" Variant="Variant.Outlined" FullWidth="true">
+                <MudSelectItem Value="@("Active")">Aktif</MudSelectItem>
+                <MudSelectItem Value="@("Passive")">Pasif</MudSelectItem>
+            </MudSelect>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">İptal</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public CreateUserRequest? Model { get; set; }
+    [Parameter] public UpdateUserRequest? UpdateModel { get; set; }
+
+    void Submit()
+    {
+        if (IsEdit)
+            MudDialog.Close(DialogResult.Ok(UpdateModel));
+        else
+            MudDialog.Close(DialogResult.Ok(Model));
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

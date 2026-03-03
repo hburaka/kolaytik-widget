@@ -1,27 +1,27 @@
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
+using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.JSInterop;
 
 namespace Kolaytik.Blazor.Auth;
 
 public class KolaytikAuthStateProvider : AuthenticationStateProvider
 {
-    private readonly IJSRuntime _js;
+    private readonly ILocalStorageService _localStorage;
     private readonly HttpClient _http;
     private static readonly AuthenticationState AnonymousState =
         new(new ClaimsPrincipal(new ClaimsIdentity()));
 
-    public KolaytikAuthStateProvider(IJSRuntime js, HttpClient http)
+    public KolaytikAuthStateProvider(ILocalStorageService localStorage, HttpClient http)
     {
-        _js = js;
+        _localStorage = localStorage;
         _http = http;
     }
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        var token = await _js.InvokeAsync<string?>("localStorage.getItem", "accessToken");
+        var token = await _localStorage.GetItemAsStringAsync("accessToken");
         if (string.IsNullOrWhiteSpace(token))
             return AnonymousState;
 
@@ -37,7 +37,7 @@ public class KolaytikAuthStateProvider : AuthenticationStateProvider
 
     public async Task NotifyUserLoginAsync(string token)
     {
-        await _js.InvokeVoidAsync("localStorage.setItem", "accessToken", token);
+        await _localStorage.SetItemAsStringAsync("accessToken", token);
         _http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
 
@@ -49,9 +49,25 @@ public class KolaytikAuthStateProvider : AuthenticationStateProvider
 
     public async Task NotifyUserLogoutAsync()
     {
-        await _js.InvokeVoidAsync("localStorage.removeItem", "accessToken");
+        await _localStorage.RemoveItemAsync("accessToken");
         _http.DefaultRequestHeaders.Authorization = null;
         NotifyAuthenticationStateChanged(Task.FromResult(AnonymousState));
+    }
+
+    public async Task<string?> GetEmailAsync()
+    {
+        var token = await _localStorage.GetItemAsStringAsync("accessToken");
+        if (string.IsNullOrEmpty(token)) return null;
+        var claims = ParseClaimsFromJwt(token);
+        return claims.FirstOrDefault(c => c.Type == "email")?.Value;
+    }
+
+    public async Task<string?> GetRoleAsync()
+    {
+        var token = await _localStorage.GetItemAsStringAsync("accessToken");
+        if (string.IsNullOrEmpty(token)) return null;
+        var claims = ParseClaimsFromJwt(token);
+        return claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
     }
 
     private static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)

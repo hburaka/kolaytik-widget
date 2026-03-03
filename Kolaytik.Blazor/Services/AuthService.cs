@@ -1,43 +1,87 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using Blazored.LocalStorage;
 using Kolaytik.Blazor.Auth;
+using Kolaytik.Blazor.Models.Auth;
+using Kolaytik.Blazor.Models.Common;
 
 namespace Kolaytik.Blazor.Services;
 
 public class AuthService : IAuthService
 {
     private readonly HttpClient _http;
+    private readonly ILocalStorageService _localStorage;
     private readonly KolaytikAuthStateProvider _authStateProvider;
 
-    public AuthService(HttpClient http, KolaytikAuthStateProvider authStateProvider)
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    public AuthService(HttpClient http, ILocalStorageService localStorage, KolaytikAuthStateProvider authStateProvider)
     {
         _http = http;
+        _localStorage = localStorage;
         _authStateProvider = authStateProvider;
     }
 
-    public async Task<bool> LoginAsync(string email, string password, string? totpCode = null)
+    public async Task<LoginResponse?> LoginAsync(LoginRequest request)
     {
-        var response = await _http.PostAsJsonAsync("api/auth/login", new
-        {
-            email,
-            password,
-            totpCode
-        });
+        var response = await _http.PostAsJsonAsync("api/auth/login", request);
+        if (!response.IsSuccessStatusCode) return null;
 
-        if (!response.IsSuccessStatusCode)
-            return false;
+        var json = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<ApiResponse<LoginResponse>>(json, JsonOptions);
+        if (result?.Data is null) return null;
 
-        var result = await response.Content.ReadFromJsonAsync<LoginResult>();
-        if (result?.AccessToken is null)
-            return false;
+        var loginResponse = result.Data;
 
-        await _authStateProvider.NotifyUserLoginAsync(result.AccessToken);
-        return true;
+        if (!loginResponse.Requires2fa && loginResponse.AccessToken is not null)
+            await PersistLoginAsync(loginResponse);
+
+        return loginResponse;
+    }
+
+    public async Task<LoginResponse?> Verify2faAsync(Verify2faRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("api/auth/verify-2fa", request);
+        if (!response.IsSuccessStatusCode) return null;
+
+        var json = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<ApiResponse<LoginResponse>>(json, JsonOptions);
+        if (result?.Data?.AccessToken is null) return null;
+
+        await PersistLoginAsync(result.Data);
+        return result.Data;
     }
 
     public async Task LogoutAsync()
     {
+        var refreshToken = await _localStorage.GetItemAsStringAsync("refreshToken");
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            try { await _http.PostAsJsonAsync("api/auth/logout", new { refreshToken }); } catch { }
+        }
+
+        await _localStorage.RemoveItemAsync("accessToken");
+        await _localStorage.RemoveItemAsync("refreshToken");
         await _authStateProvider.NotifyUserLogoutAsync();
     }
 
-    private record LoginResult(string AccessToken, string RefreshToken, DateTime ExpiresAt);
+    public async Task<bool> ChangePasswordAsync(ChangePasswordRequest request)
+    {
+        var token = await _localStorage.GetItemAsStringAsync("accessToken");
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/auth/change-password");
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        httpRequest.Content = JsonContent.Create(request);
+
+        var response = await _http.SendAsync(httpRequest);
+        return response.IsSuccessStatusCode;
+    }
+
+    private async Task PersistLoginAsync(LoginResponse loginResponse)
+    {
+        await _localStorage.SetItemAsStringAsync("accessToken", loginResponse.AccessToken!);
+        if (!string.IsNullOrEmpty(loginResponse.RefreshToken))
+            await _localStorage.SetItemAsStringAsync("refreshToken", loginResponse.RefreshToken);
+
+        await _authStateProvider.NotifyUserLoginAsync(loginResponse.AccessToken!);
+    }
 }

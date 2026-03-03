@@ -1,0 +1,206 @@
+@page "/lists/{Id:guid}"
+@attribute [Authorize]
+@inject IListService ListService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>@_listName — Liste Detayı</PageTitle>
+
+<MudBreadcrumbs Items="_breadcrumbs" Class="mb-2" />
+
+<MudText Typo="Typo.h5" Class="mb-4">@_listName</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" sm="8">
+            <MudTextField @bind-Value="_search" Label="Eleman ara..." Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true"
+                          DebounceInterval="400" OnDebounceIntervalElapsed="LoadItems"
+                          Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="4" Class="d-flex align-center justify-end gap-2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Sort" OnClick="SaveReorder"
+                       Disabled="!_reorderChanged">
+                Sıralamayı Kaydet
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateItemDialog">
+                Yeni Eleman
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudDataGrid T="ListItemResponse" Items="_items" Loading="_loading"
+             SortMode="SortMode.None" Filterable="false" Dense="true">
+    <Columns>
+        <PropertyColumn Property="x => x.OrderIndex" Title="#" CellStyle="width:60px" />
+        <PropertyColumn Property="x => x.Label" Title="Etiket" />
+        <PropertyColumn Property="x => x.Value" Title="Değer" />
+        <TemplateColumn Title="Durum" CellStyle="width:100px">
+            <CellTemplate>
+                <MudChip T="string" Color="@(context.Item.IsActive ? Color.Success : Color.Default)"
+                         Size="Size.Small">
+                    @(context.Item.IsActive ? "Aktif" : "Pasif")
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="İşlemler" CellStyle="width:160px">
+            <CellTemplate>
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                               OnClick="@(() => MoveItem(context.Item, -1))" />
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                               OnClick="@(() => MoveItem(context.Item, 1))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => OpenEditItemDialog(context.Item))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               Color="Color.Error"
+                               OnClick="@(() => DeleteItemAsync(context.Item))" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText>Eleman bulunamadı.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private List<ListItemResponse> _items = new();
+    private string _listName = "Liste";
+    private bool _loading;
+    private bool _reorderChanged;
+    private string _search = string.Empty;
+
+    private List<BreadcrumbItem> _breadcrumbs = new()
+    {
+        new("Listeler", href: "/lists"),
+        new("Detay", href: null, disabled: true)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var list = await ListService.GetListAsync(Id);
+        if (list is not null)
+        {
+            _listName = list.Name;
+            _breadcrumbs[1] = new BreadcrumbItem(list.Name, href: null, disabled: true);
+        }
+        await LoadItems();
+    }
+
+    private async Task LoadItems()
+    {
+        _loading = true;
+        _reorderChanged = false;
+        try
+        {
+            var result = await ListService.GetItemsAsync(Id, new PagedRequest
+            {
+                Page = 1,
+                PageSize = 100,
+                Search = _search
+            });
+            _items = result?.Items.ToList() ?? new List<ListItemResponse>();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void MoveItem(ListItemResponse item, int direction)
+    {
+        var idx = _items.IndexOf(item);
+        var newIdx = idx + direction;
+        if (newIdx < 0 || newIdx >= _items.Count) return;
+
+        _items.RemoveAt(idx);
+        _items.Insert(newIdx, item);
+        _reorderChanged = true;
+    }
+
+    private async Task SaveReorder()
+    {
+        var req = new ReorderItemsRequest { ItemIds = _items.Select(i => i.Id).ToList() };
+        var success = await ListService.ReorderItemsAsync(Id, req);
+        if (success)
+        {
+            Snackbar.Add("Sıralama kaydedildi.", Severity.Success);
+            _reorderChanged = false;
+            await LoadItems();
+        }
+    }
+
+    private async Task OpenCreateItemDialog()
+    {
+        var model = new CreateListItemRequest();
+        var parameters = new DialogParameters<ItemFormDialog>
+        {
+            { x => x.IsEdit, false },
+            { x => x.Model, model }
+        };
+        var dialog = await DialogService.ShowAsync<ItemFormDialog>("Yeni Eleman", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (CreateListItemRequest)result.Data!;
+            var created = await ListService.CreateItemAsync(Id, req);
+            if (created is not null)
+            {
+                Snackbar.Add("Eleman eklendi.", Severity.Success);
+                await LoadItems();
+            }
+        }
+    }
+
+    private async Task OpenEditItemDialog(ListItemResponse item)
+    {
+        var model = new UpdateListItemRequest
+        {
+            Label = item.Label,
+            Value = item.Value,
+            IsActive = item.IsActive,
+            OrderIndex = item.OrderIndex
+        };
+        var parameters = new DialogParameters<ItemFormDialog>
+        {
+            { x => x.IsEdit, true },
+            { x => x.UpdateModel, model }
+        };
+        var dialog = await DialogService.ShowAsync<ItemFormDialog>("Elemanı Düzenle", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (UpdateListItemRequest)result.Data!;
+            var updated = await ListService.UpdateItemAsync(Id, item.Id, req);
+            if (updated is not null)
+            {
+                Snackbar.Add("Eleman güncellendi.", Severity.Success);
+                await LoadItems();
+            }
+        }
+    }
+
+    private async Task DeleteItemAsync(ListItemResponse item)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, $"'{item.Label}' elemanı silinecek. Emin misiniz?" }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Onayla", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var success = await ListService.DeleteItemAsync(Id, item.Id);
+            if (success)
+            {
+                Snackbar.Add("Eleman silindi.", Severity.Success);
+                await LoadItems();
+            }
+        }
+    }
+}

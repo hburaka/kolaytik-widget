@@ -27,6 +27,8 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IListService, ListService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IWidgetService, WidgetService>();
 
         services.AddHttpContextAccessor();

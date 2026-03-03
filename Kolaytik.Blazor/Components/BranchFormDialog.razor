@@ -1,0 +1,44 @@
+<MudDialog>
+    <DialogContent>
+        @if (!IsEdit)
+        {
+            <MudTextField @bind-Value="Model!.Name" Label="Şube Adı" Variant="Variant.Outlined"
+                          FullWidth="true" Class="mb-3" Required="true" />
+            <MudSwitch @bind-Value="Model.IsActive" Color="Color.Primary" Label="Aktif" />
+        }
+        else
+        {
+            <MudTextField @bind-Value="UpdateModel!.Name" Label="Şube Adı" Variant="Variant.Outlined"
+                          FullWidth="true" Class="mb-3" Required="true" />
+            <MudSwitch @bind-Value="UpdateModel.IsActive" Color="Color.Primary" Label="Aktif" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">İptal</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public CreateBranchRequest? Model { get; set; }
+    [Parameter] public UpdateBranchRequest? UpdateModel { get; set; }
+
+    void Submit()
+    {
+        if (IsEdit)
+        {
+            if (string.IsNullOrWhiteSpace(UpdateModel?.Name)) return;
+            MudDialog.Close(DialogResult.Ok(UpdateModel));
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(Model?.Name)) return;
+            MudDialog.Close(DialogResult.Ok(Model));
+        }
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

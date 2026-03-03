@@ -1,0 +1,166 @@
+@page "/users"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin,BranchManager")]
+@inject IUserService UserService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Kullanıcılar</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Kullanıcılar</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" sm="8">
+            <MudTextField @bind-Value="_search" Label="E-mail ile ara..." Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true"
+                          DebounceInterval="400" OnDebounceIntervalElapsed="LoadUsers"
+                          Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="4" Class="d-flex align-center justify-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreateDialog">
+                Yeni Kullanıcı
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudDataGrid T="UserResponse" Items="_items" Loading="_loading"
+             SortMode="SortMode.None" Filterable="false" Dense="true">
+    <Columns>
+        <PropertyColumn Property="x => x.Email" Title="E-mail" />
+        <TemplateColumn Title="Rol">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="GetRoleColor(context.Item.Role)">
+                    @context.Item.Role
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Durum">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="@(context.Item.Status == "Active" ? Color.Success : Color.Warning)">
+                    @context.Item.Status
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="2FA">
+            <CellTemplate>
+                <MudIcon Icon="@(context.Item.Is2faEnabled ? Icons.Material.Filled.Lock : Icons.Material.Filled.LockOpen)"
+                         Color="@(context.Item.Is2faEnabled ? Color.Success : Color.Default)"
+                         Size="Size.Small" />
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Son Giriş">
+            <CellTemplate>
+                @(context.Item.LastLoginAt?.ToString("dd.MM.yyyy HH:mm") ?? "-")
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="İşlemler" CellStyle="width:120px">
+            <CellTemplate>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               Color="Color.Error"
+                               OnClick="@(() => DeleteUserAsync(context.Item))" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText>Kayıt bulunamadı.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private IEnumerable<UserResponse> _items = Enumerable.Empty<UserResponse>();
+    private bool _loading;
+    private string _search = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadUsers();
+
+    private async Task LoadUsers()
+    {
+        _loading = true;
+        try
+        {
+            var result = await UserService.GetUsersAsync(new PagedRequest { Page = 1, PageSize = 50, Search = _search });
+            _items = result?.Items ?? Enumerable.Empty<UserResponse>();
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var model = new CreateUserRequest();
+        var parameters = new DialogParameters<UserFormDialog>
+        {
+            { x => x.IsEdit, false },
+            { x => x.Model, model }
+        };
+        var dialog = await DialogService.ShowAsync<UserFormDialog>("Yeni Kullanıcı", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (CreateUserRequest)result.Data!;
+            var created = await UserService.CreateUserAsync(req);
+            if (created is not null)
+            {
+                Snackbar.Add("Kullanıcı oluşturuldu.", Severity.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                Snackbar.Add("Kullanıcı oluşturulamadı.", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenEditDialog(UserResponse user)
+    {
+        var model = new UpdateUserRequest { Role = user.Role, Status = user.Status };
+        var parameters = new DialogParameters<UserFormDialog>
+        {
+            { x => x.IsEdit, true },
+            { x => x.UpdateModel, model }
+        };
+        var dialog = await DialogService.ShowAsync<UserFormDialog>("Kullanıcıyı Düzenle", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (UpdateUserRequest)result.Data!;
+            var updated = await UserService.UpdateUserAsync(user.Id, req);
+            if (updated is not null)
+            {
+                Snackbar.Add("Kullanıcı güncellendi.", Severity.Success);
+                await LoadUsers();
+            }
+        }
+    }
+
+    private async Task DeleteUserAsync(UserResponse user)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, $"'{user.Email}' kullanıcısı silinecek. Emin misiniz?" }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Onayla", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var success = await UserService.DeleteUserAsync(user.Id);
+            if (success)
+            {
+                Snackbar.Add("Kullanıcı silindi.", Severity.Success);
+                await LoadUsers();
+            }
+        }
+    }
+
+    private static Color GetRoleColor(string role) => role switch
+    {
+        "SuperAdmin" => Color.Error,
+        "Admin" => Color.Warning,
+        "TenantAdmin" => Color.Primary,
+        "BranchManager" => Color.Secondary,
+        _ => Color.Default
+    };
+}

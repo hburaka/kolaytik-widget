@@ -1,0 +1,137 @@
+@page "/branches"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin")]
+@inject IBranchService BranchService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Şubeler</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Şubeler</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" sm="8">
+            <MudTextField @bind-Value="_search" Label="Şube adı ile ara..." Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true"
+                          DebounceInterval="400" OnDebounceIntervalElapsed="LoadBranches"
+                          Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="4" Class="d-flex align-center justify-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                Yeni Şube
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudDataGrid T="BranchResponse" Items="_items" Loading="_loading"
+             SortMode="SortMode.None" Filterable="false" Dense="true">
+    <Columns>
+        <PropertyColumn Property="x => x.Name" Title="Şube Adı" />
+        <TemplateColumn Title="Durum" CellStyle="width:100px">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(context.Item.IsActive ? Color.Success : Color.Default)">
+                    @(context.Item.IsActive ? "Aktif" : "Pasif")
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.UserCount" Title="Kullanıcı" CellStyle="width:100px" />
+        <PropertyColumn Property="x => x.CreatedAt" Title="Oluşturulma" Format="dd.MM.yyyy" CellStyle="width:130px" />
+        <TemplateColumn Title="İşlemler" CellStyle="width:120px">
+            <CellTemplate>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               Color="Color.Error"
+                               OnClick="@(() => DeleteBranchAsync(context.Item))" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText>Kayıt bulunamadı.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private IEnumerable<BranchResponse> _items = Enumerable.Empty<BranchResponse>();
+    private bool _loading;
+    private string _search = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadBranches();
+
+    private async Task LoadBranches()
+    {
+        _loading = true;
+        try
+        {
+            var result = await BranchService.GetBranchesAsync(new PagedRequest { Page = 1, PageSize = 50, Search = _search });
+            _items = result?.Items ?? Enumerable.Empty<BranchResponse>();
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var model = new CreateBranchRequest();
+        var parameters = new DialogParameters<BranchFormDialog>
+        {
+            { x => x.IsEdit, false },
+            { x => x.Model, model }
+        };
+        var dialog = await DialogService.ShowAsync<BranchFormDialog>("Yeni Şube", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (CreateBranchRequest)result.Data!;
+            var created = await BranchService.CreateBranchAsync(req);
+            if (created is not null)
+            {
+                Snackbar.Add("Şube oluşturuldu.", Severity.Success);
+                await LoadBranches();
+            }
+        }
+    }
+
+    private async Task OpenEditDialog(BranchResponse branch)
+    {
+        var model = new UpdateBranchRequest { Name = branch.Name, IsActive = branch.IsActive };
+        var parameters = new DialogParameters<BranchFormDialog>
+        {
+            { x => x.IsEdit, true },
+            { x => x.UpdateModel, model }
+        };
+        var dialog = await DialogService.ShowAsync<BranchFormDialog>("Şubeyi Düzenle", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (UpdateBranchRequest)result.Data!;
+            var updated = await BranchService.UpdateBranchAsync(branch.Id, req);
+            if (updated is not null)
+            {
+                Snackbar.Add("Şube güncellendi.", Severity.Success);
+                await LoadBranches();
+            }
+        }
+    }
+
+    private async Task DeleteBranchAsync(BranchResponse branch)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, $"'{branch.Name}' şubesi silinecek. Emin misiniz?" }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Onayla", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var success = await BranchService.DeleteBranchAsync(branch.Id);
+            if (success)
+            {
+                Snackbar.Add("Şube silindi.", Severity.Success);
+                await LoadBranches();
+            }
+        }
+    }
+}

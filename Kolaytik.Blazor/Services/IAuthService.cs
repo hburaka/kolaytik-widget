@@ -1,7 +1,11 @@
+using Kolaytik.Blazor.Models.Auth;
+
 namespace Kolaytik.Blazor.Services;
 
 public interface IAuthService
 {
-    Task<bool> LoginAsync(string email, string password, string? totpCode = null);
+    Task<LoginResponse?> LoginAsync(LoginRequest request);
+    Task<LoginResponse?> Verify2faAsync(Verify2faRequest request);
     Task LogoutAsync();
+    Task<bool> ChangePasswordAsync(ChangePasswordRequest request);
 }

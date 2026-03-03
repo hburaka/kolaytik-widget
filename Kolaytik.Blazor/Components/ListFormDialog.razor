@@ -1,0 +1,46 @@
+<MudDialog>
+    <DialogContent>
+        @if (IsEdit)
+        {
+            <MudTextField @bind-Value="UpdateModel!.Name" Label="Liste Adı" Variant="Variant.Outlined"
+                          FullWidth="true" Class="mb-3" Required="true" />
+            <MudTextField @bind-Value="UpdateModel.Description" Label="Açıklama" Variant="Variant.Outlined"
+                          FullWidth="true" Lines="3" />
+        }
+        else
+        {
+            <MudTextField @bind-Value="Model!.Name" Label="Liste Adı" Variant="Variant.Outlined"
+                          FullWidth="true" Class="mb-3" Required="true" />
+            <MudTextField @bind-Value="Model.Description" Label="Açıklama" Variant="Variant.Outlined"
+                          FullWidth="true" Lines="3" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">İptal</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public CreateListRequest? Model { get; set; }
+    [Parameter] public UpdateListRequest? UpdateModel { get; set; }
+
+    void Submit()
+    {
+        if (IsEdit)
+        {
+            if (string.IsNullOrWhiteSpace(UpdateModel?.Name)) return;
+            MudDialog.Close(DialogResult.Ok(UpdateModel));
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(Model?.Name)) return;
+            MudDialog.Close(DialogResult.Ok(Model));
+        }
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

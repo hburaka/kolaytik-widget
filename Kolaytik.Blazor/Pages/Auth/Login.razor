@@ -1,0 +1,77 @@
+@page "/login"
+@layout EmptyLayout
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+
+<PageTitle>Giriş — Kolaytik</PageTitle>
+
+<MudGrid Justify="Justify.Center" Style="min-height:100vh; align-items:center;">
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Elevation="4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Align="Align.Center">Kolaytik Panel</MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">Hesabınıza giriş yapın</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+                }
+                <MudTextField @bind-Value="_email" Label="E-mail" InputType="InputType.Email"
+                              Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+                <MudTextField @bind-Value="_password" Label="Şifre" InputType="InputType.Password"
+                              Variant="Variant.Outlined" FullWidth="true" Class="mb-4" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           OnClick="LoginAsync" Disabled="_loading">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Giriş Yap
+                </MudButton>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _error = string.Empty;
+    private bool _loading;
+
+    private async Task LoginAsync()
+    {
+        _error = string.Empty;
+        _loading = true;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(new LoginRequest
+            {
+                Email = _email,
+                Password = _password
+            });
+
+            if (result is null)
+            {
+                _error = "E-mail veya şifre hatalı.";
+                return;
+            }
+
+            if (result.Requires2fa)
+            {
+                Nav.NavigateTo($"/auth/verify-2fa?token={Uri.EscapeDataString(result.PreAuthToken ?? "")}");
+                return;
+            }
+
+            Nav.NavigateTo("/");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
