@@ -2,6 +2,16 @@
     <DialogContent>
         @if (!IsEdit)
         {
+            @if (Tenants is { Count: > 0 })
+            {
+                <MudSelect T="Guid?" @bind-Value="Model!.TenantId" Label="Firma" Variant="Variant.Outlined"
+                           FullWidth="true" Class="mb-3" Required="true">
+                    @foreach (var tenant in Tenants)
+                    {
+                        <MudSelectItem T="Guid?" Value="@tenant.Id">@tenant.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
             <MudTextField @bind-Value="Model!.Name" Label="Şube Adı" Variant="Variant.Outlined"
                           FullWidth="true" Class="mb-3" Required="true" />
             <MudSwitch @bind-Value="Model.IsActive" Color="Color.Primary" Label="Aktif" />
@@ -25,6 +35,7 @@
     [Parameter] public bool IsEdit { get; set; }
     [Parameter] public CreateBranchRequest? Model { get; set; }
     [Parameter] public UpdateBranchRequest? UpdateModel { get; set; }
+    [Parameter] public IList<TenantResponse>? Tenants { get; set; }
 
     void Submit()
     {

@@ -6,6 +6,8 @@ public class UserResponse
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public Guid? TenantId { get; set; }
+    public string? TenantName { get; set; }
+    public List<string> BranchNames { get; set; } = new();
     public string Status { get; set; } = string.Empty;
     public bool Is2faEnabled { get; set; }
     public DateTime? LastLoginAt { get; set; }

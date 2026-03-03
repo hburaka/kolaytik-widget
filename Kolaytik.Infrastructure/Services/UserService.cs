@@ -39,6 +39,8 @@ public class UserService : IUserService
 
         var total = await query.CountAsync();
         var items = await query
+            .Include(u => u.Tenant)
+            .Include(u => u.UserBranches).ThenInclude(ub => ub.Branch)
             .OrderByDescending(u => u.CreatedAt)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
@@ -48,6 +50,8 @@ public class UserService : IUserService
                 Email = u.Email,
                 Role = u.Role,
                 TenantId = u.TenantId,
+                TenantName = u.Tenant != null ? u.Tenant.Name : null,
+                BranchNames = u.UserBranches.Select(ub => ub.Branch.Name).ToList(),
                 Status = u.Status,
                 Is2faEnabled = u.Is2faEnabled,
                 LastLoginAt = u.LastLoginAt,
@@ -67,6 +71,8 @@ public class UserService : IUserService
     public async Task<UserResponse> GetUserAsync(Guid id)
     {
         var user = await BuildUserScope()
+            .Include(u => u.Tenant)
+            .Include(u => u.UserBranches).ThenInclude(ub => ub.Branch)
             .FirstOrDefaultAsync(u => u.Id == id)
             ?? throw new KeyNotFoundException("Kullanıcı bulunamadı.");
 
@@ -111,6 +117,9 @@ public class UserService : IUserService
         }
 
         await _db.SaveChangesAsync();
+
+        await _db.Entry(user).Reference(u => u.Tenant).LoadAsync();
+        await _db.Entry(user).Collection(u => u.UserBranches).Query().Include(ub => ub.Branch).LoadAsync();
         return ToResponse(user);
     }
 
@@ -119,6 +128,8 @@ public class UserService : IUserService
         AssertCanManageUsers();
 
         var user = await BuildUserScope()
+            .Include(u => u.Tenant)
+            .Include(u => u.UserBranches).ThenInclude(ub => ub.Branch)
             .FirstOrDefaultAsync(u => u.Id == id)
             ?? throw new KeyNotFoundException("Kullanıcı bulunamadı.");
 
@@ -225,6 +236,8 @@ public class UserService : IUserService
         Email = u.Email,
         Role = u.Role,
         TenantId = u.TenantId,
+        TenantName = u.Tenant?.Name,
+        BranchNames = u.UserBranches.Select(ub => ub.Branch.Name).ToList(),
         Status = u.Status,
         Is2faEnabled = u.Is2faEnabled,
         LastLoginAt = u.LastLoginAt,

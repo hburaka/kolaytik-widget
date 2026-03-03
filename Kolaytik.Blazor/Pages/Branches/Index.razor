@@ -1,6 +1,7 @@
 @page "/branches"
 @attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin")]
 @inject IBranchService BranchService
+@inject ITenantService TenantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -29,6 +30,7 @@
              SortMode="SortMode.None" Filterable="false" Dense="true">
     <Columns>
         <PropertyColumn Property="x => x.Name" Title="Şube Adı" />
+        <PropertyColumn Property="x => x.TenantName" Title="Firma" />
         <TemplateColumn Title="Durum" CellStyle="width:100px">
             <CellTemplate>
                 <MudChip T="string" Size="Size.Small"
@@ -56,10 +58,16 @@
 
 @code {
     private IEnumerable<BranchResponse> _items = Enumerable.Empty<BranchResponse>();
+    private IList<TenantResponse> _tenants = new List<TenantResponse>();
     private bool _loading;
     private string _search = string.Empty;
 
-    protected override async Task OnInitializedAsync() => await LoadBranches();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBranches();
+        var tenantsResult = await TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 200 });
+        _tenants = tenantsResult?.Items?.ToList() ?? new List<TenantResponse>();
+    }
 
     private async Task LoadBranches()
     {
@@ -78,7 +86,8 @@
         var parameters = new DialogParameters<BranchFormDialog>
         {
             { x => x.IsEdit, false },
-            { x => x.Model, model }
+            { x => x.Model, model },
+            { x => x.Tenants, _tenants }
         };
         var dialog = await DialogService.ShowAsync<BranchFormDialog>("Yeni Şube", parameters);
         var result = await dialog.Result;

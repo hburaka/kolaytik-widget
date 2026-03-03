@@ -31,6 +31,7 @@ public class BranchService : IBranchService
 
         var total = await query.CountAsync();
         var items = await query
+            .Include(b => b.Tenant)
             .OrderByDescending(b => b.CreatedAt)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
@@ -38,6 +39,7 @@ public class BranchService : IBranchService
             {
                 Id = b.Id,
                 TenantId = b.TenantId,
+                TenantName = b.Tenant.Name,
                 Name = b.Name,
                 IsActive = b.IsActive,
                 UserCount = b.UserBranches.Count,
@@ -57,6 +59,7 @@ public class BranchService : IBranchService
     public async Task<BranchResponse> GetBranchAsync(Guid id)
     {
         var branch = await BuildBranchScope()
+            .Include(b => b.Tenant)
             .Include(b => b.UserBranches)
             .FirstOrDefaultAsync(b => b.Id == id)
             ?? throw new KeyNotFoundException("Şube bulunamadı.");
@@ -79,6 +82,8 @@ public class BranchService : IBranchService
 
         await _db.Branches.AddAsync(branch);
         await _db.SaveChangesAsync();
+
+        await _db.Entry(branch).Reference(b => b.Tenant).LoadAsync();
         return ToResponse(branch);
     }
 
@@ -87,6 +92,7 @@ public class BranchService : IBranchService
         AssertCanManageBranches();
 
         var branch = await BuildBranchScope()
+            .Include(b => b.Tenant)
             .Include(b => b.UserBranches)
             .FirstOrDefaultAsync(b => b.Id == id)
             ?? throw new KeyNotFoundException("Şube bulunamadı.");
@@ -147,6 +153,7 @@ public class BranchService : IBranchService
     {
         Id = b.Id,
         TenantId = b.TenantId,
+        TenantName = b.Tenant?.Name ?? string.Empty,
         Name = b.Name,
         IsActive = b.IsActive,
         UserCount = b.UserBranches.Count,

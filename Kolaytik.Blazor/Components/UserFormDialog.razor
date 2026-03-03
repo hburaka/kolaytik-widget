@@ -2,6 +2,16 @@
     <DialogContent>
         @if (!IsEdit)
         {
+            @if (Tenants is { Count: > 0 })
+            {
+                <MudSelect T="Guid?" @bind-Value="Model!.TenantId" Label="Firma" Variant="Variant.Outlined"
+                           FullWidth="true" Class="mb-3">
+                    @foreach (var tenant in Tenants)
+                    {
+                        <MudSelectItem T="Guid?" Value="@tenant.Id">@tenant.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
             <MudTextField @bind-Value="Model!.Email" Label="E-mail" InputType="InputType.Email"
                           Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
             <MudTextField @bind-Value="Model.Password" Label="Şifre" InputType="InputType.Password"
@@ -11,6 +21,16 @@
                 <MudSelectItem Value="@("BranchManager")">BranchManager</MudSelectItem>
                 <MudSelectItem Value="@("BranchUser")">BranchUser</MudSelectItem>
             </MudSelect>
+            @if (Branches is { Count: > 0 })
+            {
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="SelectedBranchIds"
+                           Label="Şube Ataması" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+                    @foreach (var branch in Branches)
+                    {
+                        <MudSelectItem T="Guid" Value="@branch.Id">@branch.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
         }
         else
         {
@@ -19,10 +39,20 @@
                 <MudSelectItem Value="@("BranchManager")">BranchManager</MudSelectItem>
                 <MudSelectItem Value="@("BranchUser")">BranchUser</MudSelectItem>
             </MudSelect>
-            <MudSelect @bind-Value="UpdateModel.Status" Label="Durum" Variant="Variant.Outlined" FullWidth="true">
+            <MudSelect @bind-Value="UpdateModel.Status" Label="Durum" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
                 <MudSelectItem Value="@("Active")">Aktif</MudSelectItem>
                 <MudSelectItem Value="@("Passive")">Pasif</MudSelectItem>
             </MudSelect>
+            @if (Branches is { Count: > 0 })
+            {
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="EditSelectedBranchIds"
+                           Label="Şube Ataması" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+                    @foreach (var branch in Branches)
+                    {
+                        <MudSelectItem T="Guid" Value="@branch.Id">@branch.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
         }
     </DialogContent>
     <DialogActions>
@@ -37,13 +67,41 @@
     [Parameter] public bool IsEdit { get; set; }
     [Parameter] public CreateUserRequest? Model { get; set; }
     [Parameter] public UpdateUserRequest? UpdateModel { get; set; }
+    [Parameter] public IList<TenantResponse>? Tenants { get; set; }
+    [Parameter] public IList<BranchResponse>? Branches { get; set; }
+
+    private IEnumerable<Guid> SelectedBranchIds { get; set; } = new HashSet<Guid>();
+    private IEnumerable<Guid> _editSelectedBranchIds = new HashSet<Guid>();
+
+    private IEnumerable<Guid> EditSelectedBranchIds
+    {
+        get => _editSelectedBranchIds;
+        set
+        {
+            _editSelectedBranchIds = value;
+            if (UpdateModel is not null)
+                UpdateModel.BranchIds = value.ToList();
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (IsEdit && UpdateModel is not null)
+            _editSelectedBranchIds = new HashSet<Guid>(UpdateModel.BranchIds);
+    }
 
     void Submit()
     {
         if (IsEdit)
+        {
             MudDialog.Close(DialogResult.Ok(UpdateModel));
+        }
         else
+        {
+            if (Model is not null)
+                Model.BranchId = SelectedBranchIds.FirstOrDefault() == Guid.Empty ? null : SelectedBranchIds.FirstOrDefault();
             MudDialog.Close(DialogResult.Ok(Model));
+        }
     }
 
     void Cancel() => MudDialog.Cancel();
