@@ -87,6 +87,9 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    using var scope = app.Services.CreateScope();
+    await Kolaytik.Infrastructure.Data.DbSeeder.SeedAsync(scope.ServiceProvider);
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
