@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Kolaytik.API/Kolaytik.API.csproj" />
+  <Project Path="Kolaytik.Blazor/Kolaytik.Blazor.csproj" />
+  <Project Path="Kolaytik.Core/Kolaytik.Core.csproj" />
+  <Project Path="Kolaytik.Infrastructure/Kolaytik.Infrastructure.csproj" />
+</Solution>

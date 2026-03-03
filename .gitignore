@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+*.DS_Store
+
+# Sensitive config
+Kolaytik.API/appsettings.Development.json
+Kolaytik.Blazor/wwwroot/appsettings.Development.json
+
+# Logs
+logs/
+*.log
+
+# EF Core migrations snapshot (isteğe bağlı)
+# Kolaytik.Infrastructure/Migrations/
+
+# Docker
+.env
+
+# Build artifacts
+publish/
