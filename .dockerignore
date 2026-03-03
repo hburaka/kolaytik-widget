@@ -1,0 +1,29 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/publish/
+
+# IDE
+**/.vs/
+**/.idea/
+**/*.user
+**/*.suo
+
+# Git
+.git/
+.github/
+
+# Logs
+**/logs/
+**/*.log
+
+# Secrets
+.env
+**/appsettings.Development.json
+
+# Widget (not needed in API/Blazor builds)
+widget/
+
+# Docs / misc
+**/*.md
+CLAUDE.md

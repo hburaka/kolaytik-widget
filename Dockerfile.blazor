@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Restore
+COPY Kolaytik.Blazor/Kolaytik.Blazor.csproj Kolaytik.Blazor/
+RUN dotnet restore Kolaytik.Blazor/Kolaytik.Blazor.csproj
+
+# Build & publish
+COPY Kolaytik.Blazor/ Kolaytik.Blazor/
+WORKDIR /src/Kolaytik.Blazor
+RUN dotnet publish Kolaytik.Blazor.csproj -c Release -o /app/publish
+
+FROM nginx:1.27-alpine AS final
+COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
+COPY nginx/blazor.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80

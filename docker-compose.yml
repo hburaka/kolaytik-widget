@@ -1,0 +1,89 @@
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-kolaytik}
+      POSTGRES_USER:     ${POSTGRES_USER:-kolaytik}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - backup_data:/var/backups/kolaytik
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kolaytik} -d ${POSTGRES_DB:-kolaytik}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API ────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgres;Port=5432;
+        Database=${POSTGRES_DB:-kolaytik};
+        Username=${POSTGRES_USER:-kolaytik};
+        Password=${POSTGRES_PASSWORD}
+      Jwt__Key:                    ${JWT_KEY}
+      Jwt__Issuer:                 ${JWT_ISSUER:-Kolaytik}
+      Jwt__Audience:               ${JWT_AUDIENCE:-KolaytikUsers}
+      Email__SmtpHost:             ${EMAIL_SMTP_HOST}
+      Email__SmtpPort:             ${EMAIL_SMTP_PORT:-587}
+      Email__UseStartTls:          ${EMAIL_USE_STARTTLS:-true}
+      Email__Username:             ${EMAIL_USERNAME}
+      Email__Password:             ${EMAIL_PASSWORD}
+      Email__FromName:             ${EMAIL_FROM_NAME:-Kolaytik}
+      Email__FromAddress:          ${EMAIL_FROM_ADDRESS}
+      Cors__AllowedOrigins__0:     ${PANEL_URL:-https://panel.kolaytik.com}
+    volumes:
+      - api_logs:/app/logs
+      - backup_data:/var/backups/kolaytik
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  # ── Blazor Panel (nginx static) ────────────────────────────────────────────
+  blazor:
+    build:
+      context: .
+      dockerfile: Dockerfile.blazor
+    restart: unless-stopped
+    networks:
+      - frontend
+
+  # ── Nginx (Reverse Proxy) ──────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./widget:/var/www/widget:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - api
+      - blazor
+    networks:
+      - frontend
+      - backend
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  postgres_data:
+  api_logs:
+  backup_data:
