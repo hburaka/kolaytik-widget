@@ -69,6 +69,10 @@
 
             Nav.NavigateTo("/");
         }
+        catch (Exception ex)
+        {
+            _error = $"Hata: {ex.Message}";
+        }
         finally
         {
             _loading = false;
