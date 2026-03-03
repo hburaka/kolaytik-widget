@@ -1,0 +1,176 @@
+@page "/tenants"
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject ITenantService TenantService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Firmalar</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Firmalar</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" sm="8">
+            <MudTextField @bind-Value="_search" Label="Firma adı ile ara..." Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true"
+                          DebounceInterval="400" OnDebounceIntervalElapsed="LoadTenants"
+                          Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="4" Class="d-flex align-center justify-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                Yeni Firma
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudDataGrid T="TenantResponse" Items="_items" Loading="_loading"
+             SortMode="SortMode.None" Filterable="false" Dense="true">
+    <Columns>
+        <PropertyColumn Property="x => x.Name" Title="Firma Adı" />
+        <PropertyColumn Property="x => x.SectorName" Title="Sektör" />
+        <PropertyColumn Property="x => x.AuthorizedName" Title="Yetkili" />
+        <PropertyColumn Property="x => x.Phone" Title="Telefon" />
+        <TemplateColumn Title="Durum" CellStyle="width:110px">
+            <CellTemplate>
+                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Item.Status)">
+                    @GetStatusLabel(context.Item.Status)
+                </MudChip>
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Kullanıcı" CellStyle="width:90px">
+            <CellTemplate>@context.Item.UserCount</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Şube" CellStyle="width:70px">
+            <CellTemplate>@context.Item.BranchCount</CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Liste" CellStyle="width:70px">
+            <CellTemplate>@context.Item.ListCount</CellTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.CreatedAt" Title="Oluşturulma" Format="dd.MM.yyyy" CellStyle="width:130px" />
+        <TemplateColumn Title="İşlemler" CellStyle="width:120px">
+            <CellTemplate>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               Color="Color.Error"
+                               OnClick="@(() => DeleteTenantAsync(context.Item))" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText>Kayıt bulunamadı.</MudText>
+    </NoRecordsContent>
+</MudDataGrid>
+
+@code {
+    private IEnumerable<TenantResponse> _items = Enumerable.Empty<TenantResponse>();
+    private bool _loading;
+    private string _search = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadTenants();
+
+    private async Task LoadTenants()
+    {
+        _loading = true;
+        try
+        {
+            var result = await TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 50, Search = _search });
+            _items = result?.Items ?? Enumerable.Empty<TenantResponse>();
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var model = new CreateTenantRequest();
+        var parameters = new DialogParameters<TenantFormDialog>
+        {
+            { x => x.IsEdit, false },
+            { x => x.Model, model }
+        };
+        var dialog = await DialogService.ShowAsync<TenantFormDialog>("Yeni Firma", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (CreateTenantRequest)result.Data!;
+            var created = await TenantService.CreateTenantAsync(req);
+            if (created is not null)
+            {
+                Snackbar.Add("Firma oluşturuldu.", Severity.Success);
+                await LoadTenants();
+            }
+            else
+            {
+                Snackbar.Add("Firma oluşturulamadı.", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenEditDialog(TenantResponse tenant)
+    {
+        var model = new UpdateTenantRequest
+        {
+            Name = tenant.Name,
+            TaxNumber = tenant.TaxNumber,
+            AuthorizedName = tenant.AuthorizedName,
+            Phone = tenant.Phone,
+            Email = tenant.Email,
+            Address = tenant.Address,
+            Status = tenant.Status
+        };
+        var parameters = new DialogParameters<TenantFormDialog>
+        {
+            { x => x.IsEdit, true },
+            { x => x.UpdateModel, model }
+        };
+        var dialog = await DialogService.ShowAsync<TenantFormDialog>("Firmayı Düzenle", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var req = (UpdateTenantRequest)result.Data!;
+            var updated = await TenantService.UpdateTenantAsync(tenant.Id, req);
+            if (updated is not null)
+            {
+                Snackbar.Add("Firma güncellendi.", Severity.Success);
+                await LoadTenants();
+            }
+        }
+    }
+
+    private async Task DeleteTenantAsync(TenantResponse tenant)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.Message, $"'{tenant.Name}' firması silinecek. Emin misiniz?" }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Onayla", parameters);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            var success = await TenantService.DeleteTenantAsync(tenant.Id);
+            if (success)
+            {
+                Snackbar.Add("Firma silindi.", Severity.Success);
+                await LoadTenants();
+            }
+        }
+    }
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Passive" => Color.Warning,
+        "Suspended" => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string GetStatusLabel(string status) => status switch
+    {
+        "Active" => "Aktif",
+        "Passive" => "Pasif",
+        "Suspended" => "Askıda",
+        _ => status
+    };
+}

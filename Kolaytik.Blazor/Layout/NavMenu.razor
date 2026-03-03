@@ -8,4 +8,8 @@
         <MudNavLink Href="/users" Icon="@Icons.Material.Filled.People">Kullanıcılar</MudNavLink>
         <MudNavLink Href="/branches" Icon="@Icons.Material.Filled.Business">Şubeler</MudNavLink>
     </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin">
+        <MudNavLink Href="/tenants" Icon="@Icons.Material.Filled.Apartment">Firmalar</MudNavLink>
+    </AuthorizeView>
 </MudNavMenu>

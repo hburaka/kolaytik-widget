@@ -1,11 +1,71 @@
 @page "/"
 @attribute [Authorize]
 @inject IListService ListService
+@inject IUserService UserService
+@inject IBranchService BranchService
+@inject ITenantService TenantService
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Ana Sayfa — Kolaytik</PageTitle>
 
 <MudText Typo="Typo.h5" Class="mb-6">Hoş Geldiniz</MudText>
+
+<MudGrid Class="mb-6">
+    <AuthorizeView Roles="SuperAdmin,Admin">
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2">
+                <MudCardContent Class="d-flex align-center gap-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Apartment" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h5">@(_tenantCount?.ToString() ?? "...")</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Toplam Firma</MudText>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </AuthorizeView>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudCard Elevation="2">
+            <MudCardContent Class="d-flex align-center gap-4">
+                <MudIcon Icon="@Icons.Material.Filled.List" Color="Color.Secondary" Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.h5">@(_listCount?.ToString() ?? "...")</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Toplam Liste</MudText>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <AuthorizeView Roles="SuperAdmin,Admin,TenantAdmin">
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2">
+                <MudCardContent Class="d-flex align-center gap-4">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Tertiary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h5">@(_userCount?.ToString() ?? "...")</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Toplam Kullanıcı</MudText>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2">
+                <MudCardContent Class="d-flex align-center gap-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Success" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h5">@(_branchCount?.ToString() ?? "...")</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Toplam Şube</MudText>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </AuthorizeView>
+</MudGrid>
+
+<MudText Typo="Typo.h6" Class="mb-4">Hızlı Erişim</MudText>
 
 <MudGrid>
     <MudItem xs="12" sm="6" md="4">
@@ -45,4 +105,74 @@
             </MudCard>
         </MudItem>
     </AuthorizeView>
+
+    <AuthorizeView Roles="SuperAdmin,Admin">
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Elevation="2" Style="cursor:pointer" @onclick="@(() => Nav.NavigateTo("/tenants"))">
+                <MudCardContent Class="d-flex align-center gap-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Apartment" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6">Firmalar</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Müşteri firmalarını yönetin</MudText>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </AuthorizeView>
 </MudGrid>
+
+@code {
+    private int? _tenantCount;
+    private int? _listCount;
+    private int? _userCount;
+    private int? _branchCount;
+
+    private bool _isGlobalAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        _isGlobalAdmin = user.IsInRole("SuperAdmin") || user.IsInRole("Admin");
+        var isTenantOrAbove = _isGlobalAdmin || user.IsInRole("TenantAdmin");
+
+        var tasks = new System.Collections.Generic.List<Task>();
+
+        if (_isGlobalAdmin)
+            tasks.Add(LoadTenantCount());
+
+        tasks.Add(LoadListCount());
+
+        if (isTenantOrAbove)
+        {
+            tasks.Add(LoadUserCount());
+            tasks.Add(LoadBranchCount());
+        }
+
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task LoadTenantCount()
+    {
+        var result = await TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 1 });
+        _tenantCount = result?.TotalCount;
+    }
+
+    private async Task LoadListCount()
+    {
+        var result = await ListService.GetListsAsync(new PagedRequest { Page = 1, PageSize = 1 });
+        _listCount = result?.TotalCount;
+    }
+
+    private async Task LoadUserCount()
+    {
+        var result = await UserService.GetUsersAsync(new PagedRequest { Page = 1, PageSize = 1 });
+        _userCount = result?.TotalCount;
+    }
+
+    private async Task LoadBranchCount()
+    {
+        var result = await BranchService.GetBranchesAsync(new PagedRequest { Page = 1, PageSize = 1 });
+        _branchCount = result?.TotalCount;
+    }
+}

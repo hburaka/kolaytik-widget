@@ -37,6 +37,7 @@ builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<IListService, ListService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IBranchService, BranchService>();
+builder.Services.AddScoped<ITenantService, TenantService>();
 
 // MudBlazor
 builder.Services.AddMudServices();

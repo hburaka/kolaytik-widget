@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IListService, ListService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IBranchService, BranchService>();
+        services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<IWidgetService, WidgetService>();
 
         services.AddHttpContextAccessor();
