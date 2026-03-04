@@ -2,6 +2,7 @@
 @layout EmptyLayout
 @inject IAuthService AuthService
 @inject NavigationManager Nav
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 
 <PageTitle>Giriş — Kolaytik</PageTitle>
 
@@ -63,7 +64,8 @@
 
             if (result.Requires2fa)
             {
-                Nav.NavigateTo($"/auth/verify-2fa?token={Uri.EscapeDataString(result.PreAuthToken ?? "")}");
+                await LocalStorage.SetItemAsStringAsync("preAuthToken", result.PreAuthToken ?? "");
+                Nav.NavigateTo("/auth/verify-2fa");
                 return;
             }
 

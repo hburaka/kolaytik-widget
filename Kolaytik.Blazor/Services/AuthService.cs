@@ -42,9 +42,15 @@ public class AuthService : IAuthService
     public async Task<LoginResponse?> Verify2faAsync(Verify2faRequest request)
     {
         var response = await _http.PostAsJsonAsync("api/auth/verify-2fa", request);
-        if (!response.IsSuccessStatusCode) return null;
 
         var json = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = JsonSerializer.Deserialize<ApiResponse<object>>(json, JsonOptions);
+            throw new Exception(err?.Message ?? $"HTTP {(int)response.StatusCode}");
+        }
+
         var result = JsonSerializer.Deserialize<ApiResponse<LoginResponse>>(json, JsonOptions);
         if (result?.Data?.AccessToken is null) return null;
 

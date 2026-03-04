@@ -2,6 +2,7 @@
 @layout EmptyLayout
 @inject IAuthService AuthService
 @inject NavigationManager Nav
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 
 <PageTitle>İki Faktörlü Doğrulama — Kolaytik</PageTitle>
 
@@ -38,17 +39,22 @@
 </MudGrid>
 
 @code {
-    [SupplyParameterFromQuery(Name = "token")]
-    public string? PreAuthToken { get; set; }
-
     private string _code = string.Empty;
     private string _error = string.Empty;
     private bool _loading;
+    private string? _preAuthToken;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _preAuthToken = await LocalStorage.GetItemAsStringAsync("preAuthToken");
+        if (string.IsNullOrEmpty(_preAuthToken))
+            Nav.NavigateTo("/login");
+    }
 
     private async Task VerifyAsync()
     {
         _error = string.Empty;
-        if (string.IsNullOrEmpty(PreAuthToken))
+        if (string.IsNullOrEmpty(_preAuthToken))
         {
             Nav.NavigateTo("/login");
             return;
@@ -59,17 +65,22 @@
         {
             var result = await AuthService.Verify2faAsync(new Verify2faRequest
             {
-                PreAuthToken = PreAuthToken,
+                PreAuthToken = _preAuthToken,
                 TotpCode = _code.Trim()
             });
 
             if (result is null)
             {
-                _error = "Kod hatalı veya süresi dolmuş.";
+                _error = "Doğrulama başarısız.";
                 return;
             }
 
+            await LocalStorage.RemoveItemAsync("preAuthToken");
             Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
         }
         finally
         {
