@@ -85,7 +85,7 @@ public class TenantService : ITenantService
         var tenant = new Tenant
         {
             Name = request.Name.Trim(),
-            SectorId = request.SectorId ?? Guid.Empty,
+            SectorId = request.SectorId,
             TaxNumber = request.TaxNumber?.Trim(),
             AuthorizedName = request.AuthorizedName?.Trim(),
             Phone = request.Phone?.Trim(),
@@ -98,7 +98,7 @@ public class TenantService : ITenantService
         await _db.SaveChangesAsync();
 
         // Reload with sector if SectorId is set
-        if (tenant.SectorId != Guid.Empty)
+        if (tenant.SectorId.HasValue)
         {
             await _db.Entry(tenant).Reference(t => t.Sector).LoadAsync();
         }
@@ -119,7 +119,7 @@ public class TenantService : ITenantService
             ?? throw new KeyNotFoundException("Firma bulunamadı.");
 
         tenant.Name = request.Name.Trim();
-        tenant.SectorId = request.SectorId ?? Guid.Empty;
+        tenant.SectorId = request.SectorId;
         tenant.TaxNumber = request.TaxNumber?.Trim();
         tenant.AuthorizedName = request.AuthorizedName?.Trim();
         tenant.Phone = request.Phone?.Trim();
