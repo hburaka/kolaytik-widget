@@ -60,7 +60,7 @@
             var result = await AuthService.Verify2faAsync(new Verify2faRequest
             {
                 PreAuthToken = PreAuthToken,
-                TotpCode = _code
+                TotpCode = _code.Trim()
             });
 
             if (result is null)

@@ -24,6 +24,6 @@ public class TotpService : ITotpService
     {
         var key = Base32Encoding.ToBytes(secret);
         var totp = new Totp(key);
-        return totp.VerifyTotp(code, out _, new VerificationWindow(1, 1));
+        return totp.VerifyTotp(code.Trim(), out _, new VerificationWindow(2, 2));
     }
 }
