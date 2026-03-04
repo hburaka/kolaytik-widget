@@ -5,6 +5,7 @@ namespace Kolaytik.Blazor.Services;
 public interface IApiKeyService
 {
     Task<IList<ApiKeyResponse>?> GetApiKeysAsync();
+    Task<ApiKeyResponse?> GetApiKeyAsync(Guid id);
     Task<CreateApiKeyResponse?> CreateApiKeyAsync(CreateApiKeyRequest request);
     Task<ApiKeyResponse?> UpdateApiKeyAsync(Guid id, UpdateApiKeyRequest request);
     Task<bool> DeleteApiKeyAsync(Guid id);

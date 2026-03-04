@@ -107,6 +107,15 @@ public class ListsController : ControllerBase
         return Ok(ApiResponse.Ok("Eleman silindi."));
     }
 
+    /// <summary>CSV ile toplu eleman ekler.</summary>
+    [HttpPost("{listId:guid}/items/bulk")]
+    public async Task<ActionResult<ApiResponse<IList<ListItemResponse>>>> BulkCreateItems(
+        Guid listId, [FromBody] BulkCreateItemsRequest request)
+    {
+        var result = await _listService.BulkCreateItemsAsync(listId, request);
+        return Ok(ApiResponse<IList<ListItemResponse>>.Ok(result, $"{result.Count} eleman eklendi."));
+    }
+
     /// <summary>Elemanların sırasını toplu günceller.</summary>
     [HttpPut("{listId:guid}/items/reorder")]
     public async Task<ActionResult<ApiResponse>> ReorderItems(

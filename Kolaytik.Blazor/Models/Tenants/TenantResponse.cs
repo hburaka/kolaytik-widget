@@ -4,6 +4,7 @@ public class TenantResponse
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public Guid? SectorId { get; set; }
     public string? SectorName { get; set; }
     public string? TaxNumber { get; set; }
     public string? AuthorizedName { get; set; }

@@ -65,9 +65,27 @@ public class ListService : IListService
         return result?.Success ?? false;
     }
 
+    public async Task<IList<ListItemResponse>?> BulkCreateItemsAsync(Guid listId, BulkCreateItemsRequest request)
+    {
+        var result = await _api.PostAsync<IList<ListItemResponse>>($"api/lists/{listId}/items/bulk", request);
+        return result?.Data;
+    }
+
     public async Task<bool> ReorderItemsAsync(Guid listId, ReorderItemsRequest request)
     {
         var result = await _api.PutAsync<object>($"api/lists/{listId}/items/reorder", request);
+        return result?.Success ?? false;
+    }
+
+    public async Task<IList<ListItemResponse>?> GetChildrenAsync(Guid listId, Guid parentItemId)
+    {
+        var result = await _api.GetAsync<IList<ListItemResponse>>($"api/lists/{listId}/items/{parentItemId}/children");
+        return result?.Data;
+    }
+
+    public async Task<bool> SetRelationsAsync(Guid listId, Guid parentItemId, SetRelationsRequest request)
+    {
+        var result = await _api.PutAsync<object>($"api/lists/{listId}/items/{parentItemId}/relations", request);
         return result?.Success ?? false;
     }
 

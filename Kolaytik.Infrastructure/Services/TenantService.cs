@@ -40,6 +40,7 @@ public class TenantService : ITenantService
             {
                 Id = t.Id,
                 Name = t.Name,
+                SectorId = t.SectorId,
                 SectorName = t.Sector != null ? t.Sector.Name : null,
                 TaxNumber = t.TaxNumber,
                 AuthorizedName = t.AuthorizedName,
@@ -165,6 +166,7 @@ public class TenantService : ITenantService
     {
         Id = t.Id,
         Name = t.Name,
+        SectorId = t.SectorId,
         SectorName = t.Sector?.Name,
         TaxNumber = t.TaxNumber,
         AuthorizedName = t.AuthorizedName,

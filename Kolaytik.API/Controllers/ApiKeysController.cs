@@ -25,6 +25,13 @@ public class ApiKeysController : ControllerBase
         return Ok(ApiResponse<IList<ApiKeyResponse>>.Ok(result));
     }
 
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<ApiKeyResponse>>> GetApiKey(Guid id)
+    {
+        var result = await _apiKeyService.GetApiKeyAsync(id);
+        return Ok(ApiResponse<ApiKeyResponse>.Ok(result));
+    }
+
     [HttpPost]
     public async Task<ActionResult<ApiResponse<CreateApiKeyResponse>>> CreateApiKey([FromBody] CreateApiKeyRequest request)
     {

@@ -14,6 +14,12 @@ public class SectorService : ISectorService
         return result?.Data;
     }
 
+    public async Task<SectorResponse?> GetSectorAsync(Guid id)
+    {
+        var result = await _api.GetAsync<SectorResponse>($"api/sectors/{id}");
+        return result?.Data;
+    }
+
     public async Task<SectorResponse?> CreateSectorAsync(CreateSectorRequest request)
     {
         var result = await _api.PostAsync<SectorResponse>("api/sectors", request);

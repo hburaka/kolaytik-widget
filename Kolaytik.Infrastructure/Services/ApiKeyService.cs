@@ -47,6 +47,17 @@ public class ApiKeyService : IApiKeyService
             .ToListAsync();
     }
 
+    public async Task<ApiKeyResponse> GetApiKeyAsync(Guid id)
+    {
+        var apiKey = await BuildApiKeyScope()
+            .Include(k => k.Tenant)
+            .Include(k => k.Branch)
+            .FirstOrDefaultAsync(k => k.Id == id)
+            ?? throw new KeyNotFoundException("API anahtarı bulunamadı.");
+
+        return ToResponse(apiKey);
+    }
+
     public async Task<CreateApiKeyResponse> CreateApiKeyAsync(CreateApiKeyRequest request)
     {
         AssertCanManageApiKeys();

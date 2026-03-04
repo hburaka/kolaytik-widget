@@ -1,9 +1,9 @@
 @page "/api-keys"
 @attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin")]
 @inject IApiKeyService ApiKeyService
-@inject IBranchService BranchService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <PageTitle>API Anahtarları</PageTitle>
@@ -14,7 +14,8 @@
     <MudGrid>
         <MudItem xs="12" Class="d-flex align-center justify-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/api-keys/create"))">
                 Yeni API Key
             </MudButton>
         </MudItem>
@@ -70,7 +71,7 @@
         <TemplateColumn Title="İşlemler" CellStyle="width:120px">
             <CellTemplate>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                               OnClick="@(() => Nav.NavigateTo($"/api-keys/{context.Item.Id}/edit"))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                Color="Color.Error"
                                OnClick="@(() => DeleteApiKeyAsync(context.Item))" />
@@ -82,41 +83,11 @@
     </NoRecordsContent>
 </MudDataGrid>
 
-@if (_showPlainKeyDialog)
-{
-    <MudOverlay Visible="_showPlainKeyDialog" DarkBackground="true" ZIndex="1300">
-        <MudPaper Class="pa-6" Style="min-width:420px; max-width:560px;">
-            <MudText Typo="Typo.h6" Class="mb-3">API Anahtarınız Oluşturuldu!</MudText>
-            <MudAlert Severity="Severity.Warning" Class="mb-3">
-                Bu anahtar yalnızca bir kez gösterilir. Lütfen kopyalayın ve güvenli bir yerde saklayın.
-            </MudAlert>
-            <MudPaper Class="pa-3 mb-3" Style="background:#f5f5f5; word-break:break-all;">
-                <MudText Typo="Typo.body2"><code>@_plainKey</code></MudText>
-            </MudPaper>
-            <div class="d-flex gap-3">
-                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy"
-                           OnClick="CopyPlainKey">
-                    Kopyala
-                </MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => _showPlainKeyDialog = false)">Tamam</MudButton>
-            </div>
-        </MudPaper>
-    </MudOverlay>
-}
-
 @code {
     private IEnumerable<ApiKeyResponse> _items = Enumerable.Empty<ApiKeyResponse>();
-    private IList<BranchResponse> _branches = new List<BranchResponse>();
     private bool _loading;
-    private bool _showPlainKeyDialog;
-    private string _plainKey = string.Empty;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadApiKeys();
-        var branchesResult = await BranchService.GetBranchesAsync(new PagedRequest { Page = 1, PageSize = 200 });
-        _branches = branchesResult?.Items?.ToList() ?? new List<BranchResponse>();
-    }
+    protected override async Task OnInitializedAsync() => await LoadApiKeys();
 
     private async Task LoadApiKeys()
     {
@@ -127,60 +98,6 @@
             _items = result ?? Enumerable.Empty<ApiKeyResponse>();
         }
         finally { _loading = false; }
-    }
-
-    private async Task OpenCreateDialog()
-    {
-        var model = new CreateApiKeyRequest();
-        var parameters = new DialogParameters<ApiKeyFormDialog>
-        {
-            { x => x.IsEdit, false },
-            { x => x.Model, model },
-            { x => x.Branches, _branches }
-        };
-        var dialog = await DialogService.ShowAsync<ApiKeyFormDialog>("Yeni API Key", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (CreateApiKeyRequest)result.Data!;
-            var created = await ApiKeyService.CreateApiKeyAsync(req);
-            if (created is not null)
-            {
-                _plainKey = created.PlainKey;
-                _showPlainKeyDialog = true;
-                Snackbar.Add("API anahtarı oluşturuldu.", Severity.Success);
-                await LoadApiKeys();
-            }
-        }
-    }
-
-    private async Task OpenEditDialog(ApiKeyResponse apiKey)
-    {
-        var model = new UpdateApiKeyRequest
-        {
-            Name = apiKey.Name,
-            IsActive = apiKey.IsActive,
-            RateLimitPerMinute = apiKey.RateLimitPerMinute,
-            RateLimitPerDay = apiKey.RateLimitPerDay,
-            AllowedDomains = apiKey.AllowedDomains.ToList()
-        };
-        var parameters = new DialogParameters<ApiKeyFormDialog>
-        {
-            { x => x.IsEdit, true },
-            { x => x.UpdateModel, model }
-        };
-        var dialog = await DialogService.ShowAsync<ApiKeyFormDialog>("API Key Düzenle", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (UpdateApiKeyRequest)result.Data!;
-            var updated = await ApiKeyService.UpdateApiKeyAsync(apiKey.Id, req);
-            if (updated is not null)
-            {
-                Snackbar.Add("API anahtarı güncellendi.", Severity.Success);
-                await LoadApiKeys();
-            }
-        }
     }
 
     private async Task DeleteApiKeyAsync(ApiKeyResponse apiKey)
@@ -200,11 +117,5 @@
                 await LoadApiKeys();
             }
         }
-    }
-
-    private async Task CopyPlainKey()
-    {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _plainKey);
-        Snackbar.Add("API anahtarı kopyalandı.", Severity.Info);
     }
 }

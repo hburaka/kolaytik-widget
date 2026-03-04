@@ -1,12 +1,9 @@
 @page "/lists"
 @attribute [Authorize]
 @inject IListService ListService
-@inject IBranchService BranchService
-@inject ITenantService TenantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
-@inject KolaytikAuthStateProvider AuthStateProvider
 
 <PageTitle>Listeler</PageTitle>
 
@@ -22,7 +19,8 @@
         </MudItem>
         <MudItem xs="12" sm="4" Class="d-flex align-center justify-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/lists/create"))">
                 Yeni Liste
             </MudButton>
         </MudItem>
@@ -53,7 +51,7 @@
                 <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
                                OnClick="@(() => Nav.NavigateTo($"/lists/{context.Item.Id}"))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                               OnClick="@(() => Nav.NavigateTo($"/lists/{context.Item.Id}/edit"))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                Color="Color.Error"
                                OnClick="@(() => DeleteListAsync(context.Item))" />
@@ -70,31 +68,10 @@
 
 @code {
     private IEnumerable<ListResponse> _items = Enumerable.Empty<ListResponse>();
-    private IList<BranchResponse> _branches = new List<BranchResponse>();
-    private IList<TenantResponse> _tenants = new List<TenantResponse>();
     private bool _loading;
-    private bool _isGlobalAdmin;
     private string _search = string.Empty;
 
-    protected override async Task OnInitializedAsync()
-    {
-        var role = await AuthStateProvider.GetRoleAsync();
-        _isGlobalAdmin = role == "SuperAdmin" || role == "Admin";
-
-        await Task.WhenAll(LoadLists(), LoadSupportData());
-    }
-
-    private async Task LoadSupportData()
-    {
-        var branchTask = BranchService.GetBranchesAsync(new PagedRequest { Page = 1, PageSize = 200 });
-        var tenantTask = _isGlobalAdmin
-            ? TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 200 })
-            : Task.FromResult<PagedResult<TenantResponse>?>(null);
-
-        await Task.WhenAll(branchTask, tenantTask);
-        _branches = (await branchTask)?.Items?.ToList() ?? new List<BranchResponse>();
-        _tenants = (await tenantTask)?.Items?.ToList() ?? new List<TenantResponse>();
-    }
+    protected override async Task OnInitializedAsync() => await LoadLists();
 
     private async Task LoadLists()
     {
@@ -105,60 +82,6 @@
             _items = result?.Items ?? Enumerable.Empty<ListResponse>();
         }
         finally { _loading = false; }
-    }
-
-    private async Task OpenCreateDialog()
-    {
-        var parameters = new DialogParameters<ListFormDialog>
-        {
-            { x => x.IsEdit, false },
-            { x => x.IsGlobalAdmin, _isGlobalAdmin },
-            { x => x.Model, new CreateListRequest() },
-            { x => x.Tenants, _tenants },
-            { x => x.Branches, _branches }
-        };
-        var dialog = await DialogService.ShowAsync<ListFormDialog>("Yeni Liste", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (CreateListRequest)result.Data!;
-            var created = await ListService.CreateListAsync(req);
-            if (created is not null)
-            {
-                Snackbar.Add("Liste oluşturuldu.", Severity.Success);
-                await LoadLists();
-            }
-            else
-            {
-                Snackbar.Add("Liste oluşturulamadı.", Severity.Error);
-            }
-        }
-    }
-
-    private async Task OpenEditDialog(ListResponse list)
-    {
-        var model = new UpdateListRequest { Name = list.Name, Description = list.Description };
-        var parameters = new DialogParameters<ListFormDialog>
-        {
-            { x => x.IsEdit, true },
-            { x => x.UpdateModel, model }
-        };
-        var dialog = await DialogService.ShowAsync<ListFormDialog>("Listeyi Düzenle", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (UpdateListRequest)result.Data!;
-            var updated = await ListService.UpdateListAsync(list.Id, req);
-            if (updated is not null)
-            {
-                Snackbar.Add("Liste güncellendi.", Severity.Success);
-                await LoadLists();
-            }
-            else
-            {
-                Snackbar.Add("Liste güncellenemedi.", Severity.Error);
-            }
-        }
     }
 
     private async Task DeleteListAsync(ListResponse list)

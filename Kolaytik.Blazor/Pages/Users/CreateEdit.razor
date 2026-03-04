@@ -1,0 +1,190 @@
+@page "/users/create"
+@page "/users/{Id:guid}/edit"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin,BranchManager")]
+@inject IUserService UserService
+@inject ITenantService TenantService
+@inject IBranchService BranchService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject KolaytikAuthStateProvider AuthStateProvider
+
+<PageTitle>@(IsEdit ? "Kullanıcıyı Düzenle" : "Yeni Kullanıcı")</PageTitle>
+
+<MudBreadcrumbs Items="_breadcrumbs" Class="mb-4" />
+
+<MudPaper Class="pa-6" Style="max-width:640px">
+    <MudText Typo="Typo.h6" Class="mb-4">@(IsEdit ? "Kullanıcıyı Düzenle" : "Yeni Kullanıcı")</MudText>
+
+    @if (_errorMessage is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true"
+                  CloseIconClicked="@(() => _errorMessage = null)">@_errorMessage</MudAlert>
+    }
+
+    @if (!IsEdit)
+    {
+        <MudTextField @bind-Value="_email" Label="E-mail" InputType="InputType.Email"
+                      Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+        <MudTextField @bind-Value="_password" Label="Şifre" InputType="InputType.Password"
+                      Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Required="true" />
+        <MudSelect @bind-Value="_role" Label="Rol" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+            @if (_isGlobalAdmin)
+            {
+                <MudSelectItem Value="@("SuperAdmin")">SuperAdmin</MudSelectItem>
+                <MudSelectItem Value="@("Admin")">Admin</MudSelectItem>
+            }
+            <MudSelectItem Value="@("TenantAdmin")">TenantAdmin</MudSelectItem>
+            <MudSelectItem Value="@("BranchManager")">BranchManager</MudSelectItem>
+            <MudSelectItem Value="@("BranchUser")">BranchUser</MudSelectItem>
+        </MudSelect>
+        @if (_isGlobalAdmin && _tenants.Count > 0)
+        {
+            <MudSelect T="Guid?" @bind-Value="_tenantId" Label="Firma" Variant="Variant.Outlined"
+                       FullWidth="true" Class="mb-3">
+                @foreach (var tenant in _tenants)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)tenant.Id)">@tenant.Name</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        @if (_branches.Count > 0 && (_role == "BranchManager" || _role == "BranchUser"))
+        {
+            <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_selectedBranchIds"
+                       Label="Şube Ataması" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+                @foreach (var branch in _branches)
+                {
+                    <MudSelectItem T="Guid" Value="@branch.Id">@branch.Name</MudSelectItem>
+                }
+            </MudSelect>
+        }
+    }
+    else
+    {
+        <MudSelect @bind-Value="_role" Label="Rol" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+            @if (_isGlobalAdmin)
+            {
+                <MudSelectItem Value="@("SuperAdmin")">SuperAdmin</MudSelectItem>
+                <MudSelectItem Value="@("Admin")">Admin</MudSelectItem>
+            }
+            <MudSelectItem Value="@("TenantAdmin")">TenantAdmin</MudSelectItem>
+            <MudSelectItem Value="@("BranchManager")">BranchManager</MudSelectItem>
+            <MudSelectItem Value="@("BranchUser")">BranchUser</MudSelectItem>
+        </MudSelect>
+        <MudSelect @bind-Value="_status" Label="Durum" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+            <MudSelectItem Value="@("Active")">Aktif</MudSelectItem>
+            <MudSelectItem Value="@("Passive")">Pasif</MudSelectItem>
+        </MudSelect>
+        @if (_branches.Count > 0)
+        {
+            <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_selectedBranchIds"
+                       Label="Şube Ataması" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+                @foreach (var branch in _branches)
+                {
+                    <MudSelectItem T="Guid" Value="@branch.Id">@branch.Name</MudSelectItem>
+                }
+            </MudSelect>
+        }
+    }
+
+    <div class="d-flex gap-3 mt-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SubmitAsync" Disabled="_saving">
+            @(_saving ? "Kaydediliyor..." : "Kaydet")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="Cancel">İptal</MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private bool IsEdit => Id.HasValue;
+    private bool _saving;
+    private string? _errorMessage;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _role = "BranchUser";
+    private string _status = "Active";
+    private Guid? _tenantId;
+    private IEnumerable<Guid> _selectedBranchIds = new HashSet<Guid>();
+    private bool _isGlobalAdmin;
+    private IList<TenantResponse> _tenants = new List<TenantResponse>();
+    private IList<BranchResponse> _branches = new List<BranchResponse>();
+
+    private List<BreadcrumbItem> _breadcrumbs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _breadcrumbs = new List<BreadcrumbItem>
+        {
+            new("Kullanıcılar", "/users"),
+            new(IsEdit ? "Düzenle" : "Yeni", null, disabled: true)
+        };
+
+        var role = await AuthStateProvider.GetRoleAsync();
+        _isGlobalAdmin = role == "SuperAdmin" || role == "Admin";
+
+        var branchesTask = BranchService.GetBranchesAsync(new PagedRequest { Page = 1, PageSize = 500 });
+        var tenantsTask = _isGlobalAdmin
+            ? TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 200 })
+            : Task.FromResult<PagedResult<TenantResponse>?>(null);
+
+        await Task.WhenAll(branchesTask, tenantsTask);
+        _branches = (await branchesTask)?.Items?.ToList() ?? new List<BranchResponse>();
+        _tenants = (await tenantsTask)?.Items?.ToList() ?? new List<TenantResponse>();
+
+        if (IsEdit)
+        {
+            var user = await UserService.GetUserAsync(Id!.Value);
+            if (user is null) { Nav.NavigateTo("/users"); return; }
+            _role = user.Role;
+            _status = user.Status;
+            _selectedBranchIds = new HashSet<Guid>(user.BranchIds);
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            if (IsEdit)
+            {
+                var result = await UserService.UpdateUserAsync(Id!.Value, new UpdateUserRequest
+                {
+                    Role = _role,
+                    Status = _status,
+                    BranchIds = _selectedBranchIds.ToList()
+                });
+                if (result is not null) { Snackbar.Add("Kullanıcı güncellendi.", Severity.Success); Nav.NavigateTo("/users"); }
+                else { _errorMessage = "Kullanıcı güncellenemedi."; }
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(_email)) { _errorMessage = "E-mail zorunludur."; return; }
+                if (string.IsNullOrWhiteSpace(_password)) { _errorMessage = "Şifre zorunludur."; return; }
+
+                var result = await UserService.CreateUserAsync(new CreateUserRequest
+                {
+                    Email = _email,
+                    Password = _password,
+                    Role = _role,
+                    TenantId = _tenantId,
+                    BranchIds = _selectedBranchIds.ToList()
+                });
+                if (result is not null) { Snackbar.Add("Kullanıcı oluşturuldu.", Severity.Success); Nav.NavigateTo("/users"); }
+                else { _errorMessage = "Kullanıcı oluşturulamadı."; }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => Nav.NavigateTo("/users");
+}

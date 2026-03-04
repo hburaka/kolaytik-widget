@@ -1,0 +1,192 @@
+@page "/api-keys/create"
+@page "/api-keys/{Id:guid}/edit"
+@attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin")]
+@inject IApiKeyService ApiKeyService
+@inject IBranchService BranchService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@(IsEdit ? "API Anahtarını Düzenle" : "Yeni API Anahtarı")</PageTitle>
+
+<MudBreadcrumbs Items="_breadcrumbs" Class="mb-4" />
+
+<MudPaper Class="pa-6" Style="max-width:640px">
+    <MudText Typo="Typo.h6" Class="mb-4">@(IsEdit ? "API Anahtarını Düzenle" : "Yeni API Anahtarı")</MudText>
+
+    @if (_errorMessage is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true"
+                  CloseIconClicked="@(() => _errorMessage = null)">@_errorMessage</MudAlert>
+    }
+
+    <MudTextField @bind-Value="_name" Label="Anahtar Adı" Variant="Variant.Outlined"
+                  FullWidth="true" Class="mb-3" Required="true" />
+
+    @if (!IsEdit && _branches.Count > 0)
+    {
+        <MudSelect T="Guid?" @bind-Value="_branchId" Label="Şube (opsiyonel)"
+                   Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Clearable="true">
+            @foreach (var branch in _branches)
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)branch.Id)">@branch.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+
+    @if (IsEdit)
+    {
+        <MudSwitch @bind-Value="_isActive" Color="Color.Primary" Label="Aktif" Class="mb-3" />
+    }
+
+    <MudNumericField @bind-Value="_rateLimitPerMinute" Label="Dakika Başı Limit"
+                     Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="1000" />
+    <MudNumericField @bind-Value="_rateLimitPerDay" Label="Günlük Limit"
+                     Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="100" Max="100000" />
+    <MudTextField @bind-Value="_allowedDomainsText" Label="İzin Verilen Domainler (virgülle ayırın)"
+                  Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+                  Placeholder="ornek.com, jotform.com" Lines="3" />
+
+    <div class="d-flex gap-3 mt-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SubmitAsync" Disabled="_saving">
+            @(_saving ? "Kaydediliyor..." : "Kaydet")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="Cancel">İptal</MudButton>
+    </div>
+</MudPaper>
+
+@if (_showPlainKeyDialog)
+{
+    <MudOverlay Visible="_showPlainKeyDialog" DarkBackground="true" ZIndex="1300">
+        <MudPaper Class="pa-6" Style="min-width:420px; max-width:560px;">
+            <MudText Typo="Typo.h6" Class="mb-3">API Anahtarınız Oluşturuldu!</MudText>
+            <MudAlert Severity="Severity.Warning" Class="mb-3">
+                Bu anahtar yalnızca bir kez gösterilir. Lütfen kopyalayın ve güvenli bir yerde saklayın.
+            </MudAlert>
+            <MudPaper Class="pa-3 mb-3" Style="background:#f5f5f5; word-break:break-all;">
+                <MudText Typo="Typo.body2"><code>@_plainKey</code></MudText>
+            </MudPaper>
+            <div class="d-flex gap-3">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy"
+                           OnClick="CopyPlainKey">
+                    Kopyala
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="@(() => Nav.NavigateTo("/api-keys"))">Tamam</MudButton>
+            </div>
+        </MudPaper>
+    </MudOverlay>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private bool IsEdit => Id.HasValue;
+    private bool _saving;
+    private string? _errorMessage;
+    private string _name = string.Empty;
+    private Guid? _branchId;
+    private bool _isActive = true;
+    private int _rateLimitPerMinute = 60;
+    private int _rateLimitPerDay = 10000;
+    private string _allowedDomainsText = string.Empty;
+    private IList<BranchResponse> _branches = new List<BranchResponse>();
+    private bool _showPlainKeyDialog;
+    private string _plainKey = string.Empty;
+
+    private List<BreadcrumbItem> _breadcrumbs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _breadcrumbs = new List<BreadcrumbItem>
+        {
+            new("API Anahtarları", "/api-keys"),
+            new(IsEdit ? "Düzenle" : "Yeni", null, disabled: true)
+        };
+
+        if (IsEdit)
+        {
+            var apiKey = await ApiKeyService.GetApiKeyAsync(Id!.Value);
+            if (apiKey is null) { Nav.NavigateTo("/api-keys"); return; }
+            _name = apiKey.Name;
+            _isActive = apiKey.IsActive;
+            _rateLimitPerMinute = apiKey.RateLimitPerMinute;
+            _rateLimitPerDay = apiKey.RateLimitPerDay;
+            _allowedDomainsText = string.Join(", ", apiKey.AllowedDomains);
+        }
+        else
+        {
+            var branchesResult = await BranchService.GetBranchesAsync(new PagedRequest { Page = 1, PageSize = 200 });
+            _branches = branchesResult?.Items?.ToList() ?? new List<BranchResponse>();
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _errorMessage = "Anahtar adı zorunludur.";
+            return;
+        }
+
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            var domains = ParseDomains(_allowedDomainsText);
+            if (IsEdit)
+            {
+                var result = await ApiKeyService.UpdateApiKeyAsync(Id!.Value, new UpdateApiKeyRequest
+                {
+                    Name = _name,
+                    IsActive = _isActive,
+                    RateLimitPerMinute = _rateLimitPerMinute,
+                    RateLimitPerDay = _rateLimitPerDay,
+                    AllowedDomains = domains
+                });
+                if (result is not null) { Snackbar.Add("API anahtarı güncellendi.", Severity.Success); Nav.NavigateTo("/api-keys"); }
+                else { _errorMessage = "API anahtarı güncellenemedi."; }
+            }
+            else
+            {
+                var result = await ApiKeyService.CreateApiKeyAsync(new CreateApiKeyRequest
+                {
+                    Name = _name,
+                    BranchId = _branchId,
+                    RateLimitPerMinute = _rateLimitPerMinute,
+                    RateLimitPerDay = _rateLimitPerDay,
+                    AllowedDomains = domains
+                });
+                if (result is not null)
+                {
+                    _plainKey = result.PlainKey;
+                    _showPlainKeyDialog = true;
+                    Snackbar.Add("API anahtarı oluşturuldu.", Severity.Success);
+                }
+                else { _errorMessage = "API anahtarı oluşturulamadı."; }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static List<string> ParseDomains(string text) =>
+        text.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(d => d.Trim())
+            .Where(d => !string.IsNullOrWhiteSpace(d))
+            .ToList();
+
+    private async Task CopyPlainKey()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _plainKey);
+        Snackbar.Add("API anahtarı kopyalandı.", Severity.Info);
+    }
+
+    private void Cancel() => Nav.NavigateTo("/api-keys");
+}

@@ -232,6 +232,33 @@ public class ListService : IListService
         return ToItemResponse(item, false);
     }
 
+    public async Task<IList<ListItemResponse>> BulkCreateItemsAsync(Guid listId, BulkCreateItemsRequest request)
+    {
+        var list = await BuildListScope()
+            .FirstOrDefaultAsync(l => l.Id == listId)
+            ?? throw new KeyNotFoundException("Liste bulunamadı.");
+
+        AssertListWriteAccess(list);
+
+        var nextOrder = (await _db.ListItems.Where(i => i.ListId == listId).MaxAsync(i => (int?)i.OrderIndex) ?? 0) + 1;
+
+        var items = request.Items.Select((r, index) => new ListItem
+        {
+            ListId = listId,
+            TenantId = list.TenantId,
+            Label = r.Label.Trim(),
+            Value = r.Value.Trim(),
+            OrderIndex = r.OrderIndex ?? nextOrder + index,
+            IsActive = r.IsActive,
+            CreatedBy = _currentUser.UserId
+        }).ToList();
+
+        await _db.ListItems.AddRangeAsync(items);
+        await _db.SaveChangesAsync();
+
+        return items.Select(i => ToItemResponse(i, false)).ToList();
+    }
+
     public async Task<ListItemResponse> UpdateItemAsync(Guid listId, Guid itemId, UpdateListItemRequest request)
     {
         var list = await BuildListScope()

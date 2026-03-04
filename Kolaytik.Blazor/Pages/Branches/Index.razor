@@ -1,10 +1,9 @@
 @page "/branches"
 @attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin")]
 @inject IBranchService BranchService
-@inject ITenantService TenantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
-@inject KolaytikAuthStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <PageTitle>Şubeler</PageTitle>
 
@@ -20,7 +19,8 @@
         </MudItem>
         <MudItem xs="12" sm="4" Class="d-flex align-center justify-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/branches/create"))">
                 Yeni Şube
             </MudButton>
         </MudItem>
@@ -45,7 +45,7 @@
         <TemplateColumn Title="İşlemler" CellStyle="width:120px">
             <CellTemplate>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                               OnClick="@(() => Nav.NavigateTo($"/branches/{context.Item.Id}/edit"))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                Color="Color.Error"
                                OnClick="@(() => DeleteBranchAsync(context.Item))" />
@@ -59,22 +59,10 @@
 
 @code {
     private IEnumerable<BranchResponse> _items = Enumerable.Empty<BranchResponse>();
-    private IList<TenantResponse> _tenants = new List<TenantResponse>();
     private bool _loading;
     private string _search = string.Empty;
-    private bool _isGlobalAdmin;
-    private Guid? _currentUserTenantId;
 
-    protected override async Task OnInitializedAsync()
-    {
-        var role = await AuthStateProvider.GetRoleAsync();
-        _isGlobalAdmin = role == "SuperAdmin" || role == "Admin";
-        _currentUserTenantId = await AuthStateProvider.GetTenantIdAsync();
-
-        await LoadBranches();
-        var tenantsResult = await TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 200 });
-        _tenants = tenantsResult?.Items?.ToList() ?? new List<TenantResponse>();
-    }
+    protected override async Task OnInitializedAsync() => await LoadBranches();
 
     private async Task LoadBranches()
     {
@@ -85,57 +73,6 @@
             _items = result?.Items ?? Enumerable.Empty<BranchResponse>();
         }
         finally { _loading = false; }
-    }
-
-    private async Task OpenCreateDialog()
-    {
-        var model = new CreateBranchRequest();
-        var parameters = new DialogParameters<BranchFormDialog>
-        {
-            { x => x.IsEdit, false },
-            { x => x.Model, model },
-            { x => x.Tenants, _tenants },
-            { x => x.IsGlobalAdmin, _isGlobalAdmin },
-            { x => x.CurrentUserTenantId, _currentUserTenantId }
-        };
-        var dialog = await DialogService.ShowAsync<BranchFormDialog>("Yeni Şube", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (CreateBranchRequest)result.Data!;
-            var created = await BranchService.CreateBranchAsync(req);
-            if (created is not null)
-            {
-                Snackbar.Add("Şube oluşturuldu.", Severity.Success);
-                await LoadBranches();
-            }
-        }
-    }
-
-    private async Task OpenEditDialog(BranchResponse branch)
-    {
-        var model = new UpdateBranchRequest { Name = branch.Name, IsActive = branch.IsActive };
-        var parameters = new DialogParameters<BranchFormDialog>
-        {
-            { x => x.IsEdit, true },
-            { x => x.UpdateModel, model }
-        };
-        var dialog = await DialogService.ShowAsync<BranchFormDialog>("Şubeyi Düzenle", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (UpdateBranchRequest)result.Data!;
-            var updated = await BranchService.UpdateBranchAsync(branch.Id, req);
-            if (updated is not null)
-            {
-                Snackbar.Add("Şube güncellendi.", Severity.Success);
-                await LoadBranches();
-            }
-            else
-            {
-                Snackbar.Add("Şube güncellenemedi.", Severity.Error);
-            }
-        }
     }
 
     private async Task DeleteBranchAsync(BranchResponse branch)

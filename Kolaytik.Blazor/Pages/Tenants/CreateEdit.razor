@@ -1,0 +1,169 @@
+@page "/tenants/create"
+@page "/tenants/{Id:guid}/edit"
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject ITenantService TenantService
+@inject ISectorService SectorService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>@(IsEdit ? "Firmayı Düzenle" : "Yeni Firma")</PageTitle>
+
+<MudBreadcrumbs Items="_breadcrumbs" Class="mb-4" />
+
+<MudPaper Class="pa-6" Style="max-width:640px">
+    <MudText Typo="Typo.h6" Class="mb-4">@(IsEdit ? "Firmayı Düzenle" : "Yeni Firma")</MudText>
+
+    @if (_errorMessage is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true"
+                  CloseIconClicked="@(() => _errorMessage = null)">@_errorMessage</MudAlert>
+    }
+
+    <MudTextField @bind-Value="_name" Label="Firma Adı" Variant="Variant.Outlined"
+                  FullWidth="true" Class="mb-3" Required="true" />
+
+    @if (_sectors.Count > 0)
+    {
+        <MudSelect T="Guid?" @bind-Value="_sectorId" Label="Sektör (opsiyonel)"
+                   Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Clearable="true">
+            @foreach (var sector in _sectors)
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)sector.Id)">@sector.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+
+    <MudTextField @bind-Value="_authorizedName" Label="Yetkili Adı" Variant="Variant.Outlined"
+                  FullWidth="true" Class="mb-3" />
+    <MudTextField @bind-Value="_email" Label="E-mail" InputType="InputType.Email"
+                  Variant="Variant.Outlined" FullWidth="true" Class="mb-3" />
+    <MudTextField @bind-Value="_phone" Label="Telefon" Variant="Variant.Outlined"
+                  FullWidth="true" Class="mb-3" />
+    <MudTextField @bind-Value="_taxNumber" Label="Vergi No" Variant="Variant.Outlined"
+                  FullWidth="true" Class="mb-3" />
+    <MudTextField @bind-Value="_address" Label="Adres" Variant="Variant.Outlined"
+                  FullWidth="true" Lines="2" Class="mb-3" />
+
+    @if (IsEdit)
+    {
+        <MudSelect @bind-Value="_status" Label="Durum" Variant="Variant.Outlined" FullWidth="true" Class="mb-3">
+            <MudSelectItem Value="@("Active")">Aktif</MudSelectItem>
+            <MudSelectItem Value="@("Passive")">Pasif</MudSelectItem>
+            <MudSelectItem Value="@("Suspended")">Askıda</MudSelectItem>
+        </MudSelect>
+    }
+
+    <div class="d-flex gap-3 mt-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SubmitAsync" Disabled="_saving">
+            @(_saving ? "Kaydediliyor..." : "Kaydet")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="Cancel">İptal</MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private bool IsEdit => Id.HasValue;
+    private bool _saving;
+    private string? _errorMessage;
+    private string _name = string.Empty;
+    private Guid? _sectorId;
+    private string? _authorizedName;
+    private string? _email;
+    private string? _phone;
+    private string? _taxNumber;
+    private string? _address;
+    private string _status = "Active";
+    private IList<SectorResponse> _sectors = new List<SectorResponse>();
+
+    private List<BreadcrumbItem> _breadcrumbs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _breadcrumbs = new List<BreadcrumbItem>
+        {
+            new("Firmalar", "/tenants"),
+            new(IsEdit ? "Düzenle" : "Yeni", null, disabled: true)
+        };
+
+        var sectorsTask = SectorService.GetSectorsAsync();
+
+        if (IsEdit)
+        {
+            var tenantTask = TenantService.GetTenantAsync(Id!.Value);
+            await Task.WhenAll(sectorsTask, tenantTask);
+            _sectors = (await sectorsTask) ?? new List<SectorResponse>();
+            var tenant = await tenantTask;
+            if (tenant is null) { Nav.NavigateTo("/tenants"); return; }
+            _name = tenant.Name;
+            _sectorId = tenant.SectorId;
+            _authorizedName = tenant.AuthorizedName;
+            _email = tenant.Email;
+            _phone = tenant.Phone;
+            _taxNumber = tenant.TaxNumber;
+            _address = tenant.Address;
+            _status = tenant.Status;
+        }
+        else
+        {
+            _sectors = (await sectorsTask) ?? new List<SectorResponse>();
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _errorMessage = "Firma adı zorunludur.";
+            return;
+        }
+
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            if (IsEdit)
+            {
+                var result = await TenantService.UpdateTenantAsync(Id!.Value, new UpdateTenantRequest
+                {
+                    Name = _name,
+                    SectorId = _sectorId,
+                    AuthorizedName = _authorizedName,
+                    Email = _email,
+                    Phone = _phone,
+                    TaxNumber = _taxNumber,
+                    Address = _address,
+                    Status = _status
+                });
+                if (result is not null) { Snackbar.Add("Firma güncellendi.", Severity.Success); Nav.NavigateTo("/tenants"); }
+                else { _errorMessage = "Firma güncellenemedi."; }
+            }
+            else
+            {
+                var result = await TenantService.CreateTenantAsync(new CreateTenantRequest
+                {
+                    Name = _name,
+                    SectorId = _sectorId,
+                    AuthorizedName = _authorizedName,
+                    Email = _email,
+                    Phone = _phone,
+                    TaxNumber = _taxNumber,
+                    Address = _address
+                });
+                if (result is not null) { Snackbar.Add("Firma oluşturuldu.", Severity.Success); Nav.NavigateTo("/tenants"); }
+                else { _errorMessage = "Firma oluşturulamadı."; }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => Nav.NavigateTo("/tenants");
+}

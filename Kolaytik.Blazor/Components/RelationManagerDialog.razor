@@ -1,0 +1,130 @@
+<MudDialog Style="min-width:560px; max-width:720px">
+    <DialogContent>
+        @if (_loading)
+        {
+            <div class="d-flex justify-center pa-4">
+                <MudProgressCircular Indeterminate="true" />
+            </div>
+        }
+        else
+        {
+            <MudText Class="mb-4">
+                <b>@ParentItem!.Label</b> <MudText Inline="true" Color="Color.Secondary">(@ParentItem.Value)</MudText>
+                elemanının bağlantıları
+            </MudText>
+
+            <MudSelect T="Guid?" @bind-Value="_targetListId" Label="Bağlanacak Liste"
+                       Variant="Variant.Outlined" FullWidth="true" Class="mb-2"
+                       Placeholder="Bir liste seçin...">
+                @foreach (var list in _allLists)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)list.Id)">@list.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="LoadTargetItemsAsync"
+                       Disabled="@(!_targetListId.HasValue)" Class="mb-4">
+                Elemanları Yükle
+            </MudButton>
+
+            @if (_targetListItems.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Bağlanacak elemanları seçin:</MudText>
+                <MudPaper Outlined="true" Class="pa-2" Style="max-height:320px; overflow-y:auto;">
+                    @foreach (var item in _targetListItems)
+                    {
+                        var isChecked = _selectedChildIds.Contains(item.Id);
+                        <MudCheckBox T="bool" Value="isChecked"
+                                     ValueChanged="@(v => ToggleChild(item.Id, v))"
+                                     Label="@($"{item.Label}  ({item.Value})")"
+                                     Color="Color.Primary" Dense="true" />
+                    }
+                </MudPaper>
+                <MudText Typo="Typo.caption" Class="mt-1 mb-2" Color="Color.Secondary">
+                    @_selectedChildIds.Count(@id => _targetListItems.Any(i => i.Id == id)) eleman seçili
+                    (toplam @_selectedChildIds.Count bağlantı)
+                </MudText>
+            }
+            else if (_targetListLoaded)
+            {
+                <MudAlert Severity="Severity.Info">Bu listede eleman bulunamadı.</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">İptal</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving || _loading">
+            @(_saving ? "Kaydediliyor..." : "Kaydet")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public Guid ListId { get; set; }
+    [Parameter] public ListItemResponse? ParentItem { get; set; }
+
+    [Inject] IListService ListService { get; set; } = null!;
+    [Inject] ISnackbar Snackbar { get; set; } = null!;
+
+    private bool _loading = true;
+    private bool _saving;
+    private bool _targetListLoaded;
+    private Guid? _targetListId;
+    private List<ListResponse> _allLists = new();
+    private List<ListItemResponse> _targetListItems = new();
+    private HashSet<Guid> _selectedChildIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var listsTask = ListService.GetListsAsync(new PagedRequest { Page = 1, PageSize = 200 });
+        var childrenTask = ListService.GetChildrenAsync(ListId, ParentItem!.Id);
+
+        await Task.WhenAll(listsTask, childrenTask);
+
+        _allLists = (await listsTask)?.Items?.ToList() ?? new();
+        var existing = (await childrenTask) ?? new List<ListItemResponse>();
+        _selectedChildIds = existing.Select(c => c.Id).ToHashSet();
+        _loading = false;
+    }
+
+    private async Task LoadTargetItemsAsync()
+    {
+        if (!_targetListId.HasValue) return;
+        _targetListLoaded = false;
+        var result = await ListService.GetItemsAsync(_targetListId.Value, new PagedRequest { Page = 1, PageSize = 200 });
+        _targetListItems = result?.Items?.ToList() ?? new();
+        _targetListLoaded = true;
+    }
+
+    private void ToggleChild(Guid id, bool selected)
+    {
+        if (selected) _selectedChildIds.Add(id);
+        else _selectedChildIds.Remove(id);
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        try
+        {
+            var success = await ListService.SetRelationsAsync(ListId, ParentItem!.Id,
+                new SetRelationsRequest { ChildItemIds = _selectedChildIds.ToList() });
+            if (success)
+            {
+                Snackbar.Add("Bağlantılar güncellendi.", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add("Bağlantılar güncellenemedi.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

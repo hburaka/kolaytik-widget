@@ -3,6 +3,7 @@
 @inject ISectorService SectorService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>Sektörler</PageTitle>
 
@@ -12,7 +13,8 @@
     <MudGrid>
         <MudItem xs="12" Class="d-flex align-center justify-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/sectors/create"))">
                 Yeni Sektör
             </MudButton>
         </MudItem>
@@ -35,7 +37,7 @@
         <TemplateColumn Title="İşlemler" CellStyle="width:120px">
             <CellTemplate>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                               OnClick="@(() => Nav.NavigateTo($"/sectors/{context.Item.Id}/edit"))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                Color="Color.Error"
                                OnClick="@(() => DeleteSectorAsync(context.Item))" />
@@ -51,10 +53,7 @@
     private IEnumerable<SectorResponse> _items = Enumerable.Empty<SectorResponse>();
     private bool _loading;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadSectors();
-    }
+    protected override async Task OnInitializedAsync() => await LoadSectors();
 
     private async Task LoadSectors()
     {
@@ -65,50 +64,6 @@
             _items = result ?? Enumerable.Empty<SectorResponse>();
         }
         finally { _loading = false; }
-    }
-
-    private async Task OpenCreateDialog()
-    {
-        var model = new CreateSectorRequest();
-        var parameters = new DialogParameters<SectorFormDialog>
-        {
-            { x => x.IsEdit, false },
-            { x => x.Model, model }
-        };
-        var dialog = await DialogService.ShowAsync<SectorFormDialog>("Yeni Sektör", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (CreateSectorRequest)result.Data!;
-            var created = await SectorService.CreateSectorAsync(req);
-            if (created is not null)
-            {
-                Snackbar.Add("Sektör oluşturuldu.", Severity.Success);
-                await LoadSectors();
-            }
-        }
-    }
-
-    private async Task OpenEditDialog(SectorResponse sector)
-    {
-        var model = new UpdateSectorRequest { Name = sector.Name, IsActive = sector.IsActive };
-        var parameters = new DialogParameters<SectorFormDialog>
-        {
-            { x => x.IsEdit, true },
-            { x => x.UpdateModel, model }
-        };
-        var dialog = await DialogService.ShowAsync<SectorFormDialog>("Sektörü Düzenle", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (UpdateSectorRequest)result.Data!;
-            var updated = await SectorService.UpdateSectorAsync(sector.Id, req);
-            if (updated is not null)
-            {
-                Snackbar.Add("Sektör güncellendi.", Severity.Success);
-                await LoadSectors();
-            }
-        }
     }
 
     private async Task DeleteSectorAsync(SectorResponse sector)

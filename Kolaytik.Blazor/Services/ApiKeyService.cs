@@ -14,6 +14,12 @@ public class ApiKeyService : IApiKeyService
         return result?.Data;
     }
 
+    public async Task<ApiKeyResponse?> GetApiKeyAsync(Guid id)
+    {
+        var result = await _api.GetAsync<ApiKeyResponse>($"api/api-keys/{id}");
+        return result?.Data;
+    }
+
     public async Task<CreateApiKeyResponse?> CreateApiKeyAsync(CreateApiKeyRequest request)
     {
         var result = await _api.PostAsync<CreateApiKeyResponse>("api/api-keys", request);

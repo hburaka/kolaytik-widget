@@ -3,6 +3,7 @@
 @inject ITenantService TenantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>Firmalar</PageTitle>
 
@@ -18,7 +19,8 @@
         </MudItem>
         <MudItem xs="12" sm="4" Class="d-flex align-center justify-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => Nav.NavigateTo("/tenants/create"))">
                 Yeni Firma
             </MudButton>
         </MudItem>
@@ -52,7 +54,7 @@
         <TemplateColumn Title="İşlemler" CellStyle="width:120px">
             <CellTemplate>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                               OnClick="@(() => Nav.NavigateTo($"/tenants/{context.Item.Id}/edit"))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                Color="Color.Error"
                                OnClick="@(() => DeleteTenantAsync(context.Item))" />
@@ -80,63 +82,6 @@
             _items = result?.Items ?? Enumerable.Empty<TenantResponse>();
         }
         finally { _loading = false; }
-    }
-
-    private async Task OpenCreateDialog()
-    {
-        var model = new CreateTenantRequest();
-        var parameters = new DialogParameters<TenantFormDialog>
-        {
-            { x => x.IsEdit, false },
-            { x => x.Model, model }
-        };
-        var dialog = await DialogService.ShowAsync<TenantFormDialog>("Yeni Firma", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (CreateTenantRequest)result.Data!;
-            var created = await TenantService.CreateTenantAsync(req);
-            if (created is not null)
-            {
-                Snackbar.Add("Firma oluşturuldu.", Severity.Success);
-                await LoadTenants();
-            }
-            else
-            {
-                Snackbar.Add("Firma oluşturulamadı.", Severity.Error);
-            }
-        }
-    }
-
-    private async Task OpenEditDialog(TenantResponse tenant)
-    {
-        var model = new UpdateTenantRequest
-        {
-            Name = tenant.Name,
-            TaxNumber = tenant.TaxNumber,
-            AuthorizedName = tenant.AuthorizedName,
-            Phone = tenant.Phone,
-            Email = tenant.Email,
-            Address = tenant.Address,
-            Status = tenant.Status
-        };
-        var parameters = new DialogParameters<TenantFormDialog>
-        {
-            { x => x.IsEdit, true },
-            { x => x.UpdateModel, model }
-        };
-        var dialog = await DialogService.ShowAsync<TenantFormDialog>("Firmayı Düzenle", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (UpdateTenantRequest)result.Data!;
-            var updated = await TenantService.UpdateTenantAsync(tenant.Id, req);
-            if (updated is not null)
-            {
-                Snackbar.Add("Firma güncellendi.", Severity.Success);
-                await LoadTenants();
-            }
-        }
     }
 
     private async Task DeleteTenantAsync(TenantResponse tenant)

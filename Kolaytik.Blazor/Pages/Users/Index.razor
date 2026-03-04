@@ -1,11 +1,9 @@
 @page "/users"
 @attribute [Authorize(Roles = "SuperAdmin,Admin,TenantAdmin,BranchManager")]
 @inject IUserService UserService
-@inject ITenantService TenantService
-@inject IBranchService BranchService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
-@inject KolaytikAuthStateProvider AuthStateProvider
+@inject NavigationManager Nav
 
 <PageTitle>Kullanıcılar</PageTitle>
 
@@ -21,7 +19,8 @@
         </MudItem>
         <MudItem xs="12" sm="4" Class="d-flex align-center justify-end">
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreateDialog">
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="@(() => Nav.NavigateTo("/users/create"))">
                 Yeni Kullanıcı
             </MudButton>
         </MudItem>
@@ -74,7 +73,7 @@
         <TemplateColumn Title="İşlemler" CellStyle="width:120px">
             <CellTemplate>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                               OnClick="@(() => OpenEditDialog(context.Item))" />
+                               OnClick="@(() => Nav.NavigateTo($"/users/{context.Item.Id}/edit"))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                Color="Color.Error"
                                OnClick="@(() => DeleteUserAsync(context.Item))" />
@@ -88,23 +87,10 @@
 
 @code {
     private IEnumerable<UserResponse> _items = Enumerable.Empty<UserResponse>();
-    private IList<TenantResponse> _tenants = new List<TenantResponse>();
-    private IList<BranchResponse> _branches = new List<BranchResponse>();
     private bool _loading;
     private string _search = string.Empty;
-    private bool _isGlobalAdmin;
 
-    protected override async Task OnInitializedAsync()
-    {
-        var role = await AuthStateProvider.GetRoleAsync();
-        _isGlobalAdmin = role == "SuperAdmin" || role == "Admin";
-
-        await LoadUsers();
-        var tenantsResult = await TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 200 });
-        _tenants = tenantsResult?.Items?.ToList() ?? new List<TenantResponse>();
-        var branchesResult = await BranchService.GetBranchesAsync(new PagedRequest { Page = 1, PageSize = 500 });
-        _branches = branchesResult?.Items?.ToList() ?? new List<BranchResponse>();
-    }
+    protected override async Task OnInitializedAsync() => await LoadUsers();
 
     private async Task LoadUsers()
     {
@@ -115,64 +101,6 @@
             _items = result?.Items ?? Enumerable.Empty<UserResponse>();
         }
         finally { _loading = false; }
-    }
-
-    private async Task OpenCreateDialog()
-    {
-        var model = new CreateUserRequest();
-        var parameters = new DialogParameters<UserFormDialog>
-        {
-            { x => x.IsEdit, false },
-            { x => x.Model, model },
-            { x => x.Tenants, _tenants },
-            { x => x.Branches, _branches },
-            { x => x.IsGlobalAdmin, _isGlobalAdmin }
-        };
-        var dialog = await DialogService.ShowAsync<UserFormDialog>("Yeni Kullanıcı", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (CreateUserRequest)result.Data!;
-            var created = await UserService.CreateUserAsync(req);
-            if (created is not null)
-            {
-                Snackbar.Add("Kullanıcı oluşturuldu.", Severity.Success);
-                await LoadUsers();
-            }
-            else
-            {
-                Snackbar.Add("Kullanıcı oluşturulamadı.", Severity.Error);
-            }
-        }
-    }
-
-    private async Task OpenEditDialog(UserResponse user)
-    {
-        var model = new UpdateUserRequest
-        {
-            Role = user.Role,
-            Status = user.Status,
-            BranchIds = user.BranchIds.ToList()
-        };
-        var parameters = new DialogParameters<UserFormDialog>
-        {
-            { x => x.IsEdit, true },
-            { x => x.UpdateModel, model },
-            { x => x.Branches, _branches },
-            { x => x.IsGlobalAdmin, _isGlobalAdmin }
-        };
-        var dialog = await DialogService.ShowAsync<UserFormDialog>("Kullanıcıyı Düzenle", parameters);
-        var result = await dialog.Result;
-        if (!result.Canceled)
-        {
-            var req = (UpdateUserRequest)result.Data!;
-            var updated = await UserService.UpdateUserAsync(user.Id, req);
-            if (updated is not null)
-            {
-                Snackbar.Add("Kullanıcı güncellendi.", Severity.Success);
-                await LoadUsers();
-            }
-        }
     }
 
     private async Task DeleteUserAsync(UserResponse user)

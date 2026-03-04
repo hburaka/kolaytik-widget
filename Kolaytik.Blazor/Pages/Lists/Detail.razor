@@ -4,6 +4,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@_listName — Liste Detayı</PageTitle>
 
@@ -13,17 +14,22 @@
 
 <MudPaper Class="pa-4 mb-4">
     <MudGrid>
-        <MudItem xs="12" sm="8">
+        <MudItem xs="12" sm="6">
             <MudTextField @bind-Value="_search" Label="Eleman ara..." Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true"
                           DebounceInterval="400" OnDebounceIntervalElapsed="LoadItems"
                           Variant="Variant.Outlined" />
         </MudItem>
-        <MudItem xs="12" sm="4" Class="d-flex align-center justify-end gap-2">
+        <MudItem xs="12" sm="6" Class="d-flex align-center justify-end gap-2">
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
                        StartIcon="@Icons.Material.Filled.Sort" OnClick="SaveReorder"
                        Disabled="!_reorderChanged">
                 Sıralamayı Kaydet
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.Upload"
+                       OnClick="@(() => _showCsvPanel = !_showCsvPanel)">
+                CSV ile Aktar
             </MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateItemDialog">
@@ -32,6 +38,65 @@
         </MudItem>
     </MudGrid>
 </MudPaper>
+
+@if (_showCsvPanel)
+{
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">CSV ile Toplu Eleman Ekleme</MudText>
+
+        <MudAlert Severity="Severity.Info" Class="mb-3">
+            CSV dosyası <b>label</b> ve <b>value</b> sütunlarını içermelidir. İlk satır başlık satırı olarak atlanır.
+            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Info"
+                       OnClick="DownloadTemplateAsync" Class="ml-2">
+                Şablonu İndir
+            </MudButton>
+        </MudAlert>
+
+        <InputFile id="csvInput" OnChange="OnCsvFileSelected" accept=".csv" style="display:none" />
+        <div class="d-flex gap-3 align-center mb-3">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.AttachFile"
+                       OnClick="TriggerFileInput">
+                @(_csvFileName ?? "CSV Dosyası Seç")
+            </MudButton>
+            @if (_csvItems.Count > 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@_csvItems.Count eleman hazır</MudText>
+            }
+        </div>
+
+        @if (_csvParseError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">@_csvParseError</MudAlert>
+        }
+
+        @if (_csvItems.Count > 0)
+        {
+            <MudDataGrid T="CsvPreviewRow" Items="_csvItems" Dense="true" Class="mb-3"
+                         SortMode="SortMode.None" Filterable="false">
+                <Columns>
+                    <PropertyColumn Property="x => x.Label" Title="Etiket" />
+                    <PropertyColumn Property="x => x.Value" Title="Değer" />
+                    <TemplateColumn Title="" CellStyle="width:40px">
+                        <CellTemplate>
+                            @if (!string.IsNullOrWhiteSpace(context.Item.Error))
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+
+            <div class="d-flex gap-3">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="ImportCsvAsync" Disabled="_importing">
+                    @(_importing ? "İçe Aktarılıyor..." : $"{_csvItems.Count(r => r.Error is null)} Elemanı Aktar")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ClearCsv">Temizle</MudButton>
+            </div>
+        }
+    </MudPaper>
+}
 
 <MudDataGrid T="ListItemResponse" Items="_items" Loading="_loading"
              SortMode="SortMode.None" Filterable="false" Dense="true">
@@ -47,7 +112,7 @@
                 </MudChip>
             </CellTemplate>
         </TemplateColumn>
-        <TemplateColumn Title="İşlemler" CellStyle="width:160px">
+        <TemplateColumn Title="İşlemler" CellStyle="width:200px">
             <CellTemplate>
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
                                OnClick="@(() => MoveItem(context.Item, -1))" />
@@ -55,6 +120,9 @@
                                OnClick="@(() => MoveItem(context.Item, 1))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
                                OnClick="@(() => OpenEditItemDialog(context.Item))" />
+                <MudIconButton Icon="@(context.Item.HasChildren ? Icons.Material.Filled.AccountTree : Icons.Material.Outlined.AccountTree)"
+                               Size="Size.Small" Color="@(context.Item.HasChildren ? Color.Primary : Color.Default)"
+                               OnClick="@(() => OpenRelationDialog(context.Item))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
                                Color="Color.Error"
                                OnClick="@(() => DeleteItemAsync(context.Item))" />
@@ -74,6 +142,13 @@
     private bool _loading;
     private bool _reorderChanged;
     private string _search = string.Empty;
+
+    // CSV import
+    private bool _showCsvPanel;
+    private string? _csvFileName;
+    private string? _csvParseError;
+    private List<CsvPreviewRow> _csvItems = new();
+    private bool _importing;
 
     private List<BreadcrumbItem> _breadcrumbs = new()
     {
@@ -185,6 +260,20 @@
         }
     }
 
+    private async Task OpenRelationDialog(ListItemResponse item)
+    {
+        var parameters = new DialogParameters<RelationManagerDialog>
+        {
+            { x => x.ListId, Id },
+            { x => x.ParentItem, item }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<RelationManagerDialog>("Bağlantıları Yönet", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await LoadItems();
+    }
+
     private async Task DeleteItemAsync(ListItemResponse item)
     {
         var parameters = new DialogParameters<ConfirmDialog>
@@ -202,5 +291,130 @@
                 await LoadItems();
             }
         }
+    }
+
+    // ── CSV Import ─────────────────────────────────────────────────────────
+
+    private async Task DownloadTemplateAsync()
+    {
+        var csv = "label,value\nEleman 1,deger1\nEleman 2,deger2\nEleman 3,deger3";
+        await JS.InvokeVoidAsync("downloadTextFile", "liste_sablon.csv", csv);
+    }
+
+    private async Task TriggerFileInput()
+    {
+        await JS.InvokeVoidAsync("eval", "document.getElementById('csvInput').click()");
+    }
+
+    private async Task OnCsvFileSelected(InputFileChangeEventArgs e)
+    {
+        _csvParseError = null;
+        _csvItems = new();
+        var file = e.File;
+
+        if (file is null) return;
+
+        _csvFileName = file.Name;
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024); // 5MB
+            using var reader = new System.IO.StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+            ParseCsv(content);
+        }
+        catch (Exception ex)
+        {
+            _csvParseError = $"Dosya okunurken hata oluştu: {ex.Message}";
+        }
+    }
+
+    private void ParseCsv(string content)
+    {
+        var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var rows = new List<CsvPreviewRow>();
+
+        foreach (var line in lines.Skip(1)) // skip header
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) continue;
+
+            var parts = trimmed.Split(',');
+            if (parts.Length < 2)
+            {
+                rows.Add(new CsvPreviewRow { Label = trimmed, Value = "", Error = "Değer sütunu eksik" });
+                continue;
+            }
+
+            var label = parts[0].Trim().Trim('"');
+            var value = parts[1].Trim().Trim('"');
+
+            rows.Add(new CsvPreviewRow
+            {
+                Label = label,
+                Value = value,
+                Error = string.IsNullOrWhiteSpace(label) ? "Etiket boş olamaz" : null
+            });
+        }
+
+        if (rows.Count == 0)
+            _csvParseError = "CSV dosyasında geçerli satır bulunamadı.";
+        else
+            _csvItems = rows;
+    }
+
+    private async Task ImportCsvAsync()
+    {
+        var validRows = _csvItems.Where(r => r.Error is null).ToList();
+        if (validRows.Count == 0) return;
+
+        _importing = true;
+        try
+        {
+            var req = new BulkCreateItemsRequest
+            {
+                Items = validRows.Select(r => new CreateListItemRequest
+                {
+                    Label = r.Label,
+                    Value = r.Value,
+                    IsActive = true
+                }).ToList()
+            };
+
+            var result = await ListService.BulkCreateItemsAsync(Id, req);
+            if (result is not null)
+            {
+                Snackbar.Add($"{result.Count} eleman başarıyla içe aktarıldı.", Severity.Success);
+                ClearCsv();
+                _showCsvPanel = false;
+                await LoadItems();
+            }
+            else
+            {
+                Snackbar.Add("İçe aktarma başarısız.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Hata: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+
+    private void ClearCsv()
+    {
+        _csvFileName = null;
+        _csvItems = new();
+        _csvParseError = null;
+    }
+
+    private record CsvPreviewRow
+    {
+        public string Label { get; init; } = string.Empty;
+        public string Value { get; init; } = string.Empty;
+        public string? Error { get; init; }
     }
 }

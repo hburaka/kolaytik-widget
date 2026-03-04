@@ -13,7 +13,11 @@ public interface IListService
 
     Task<PagedResult<ListItemResponse>?> GetItemsAsync(Guid listId, PagedRequest request);
     Task<ListItemResponse?> CreateItemAsync(Guid listId, CreateListItemRequest request);
+    Task<IList<ListItemResponse>?> BulkCreateItemsAsync(Guid listId, BulkCreateItemsRequest request);
     Task<ListItemResponse?> UpdateItemAsync(Guid listId, Guid itemId, UpdateListItemRequest request);
     Task<bool> DeleteItemAsync(Guid listId, Guid itemId);
     Task<bool> ReorderItemsAsync(Guid listId, ReorderItemsRequest request);
+
+    Task<IList<ListItemResponse>?> GetChildrenAsync(Guid listId, Guid parentItemId);
+    Task<bool> SetRelationsAsync(Guid listId, Guid parentItemId, SetRelationsRequest request);
 }
