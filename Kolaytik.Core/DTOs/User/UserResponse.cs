@@ -9,6 +9,7 @@ public class UserResponse
     public UserRole Role { get; set; }
     public Guid? TenantId { get; set; }
     public string? TenantName { get; set; }
+    public List<Guid> BranchIds { get; set; } = new();
     public List<string> BranchNames { get; set; } = new();
     public UserStatus Status { get; set; }
     public bool Is2faEnabled { get; set; }

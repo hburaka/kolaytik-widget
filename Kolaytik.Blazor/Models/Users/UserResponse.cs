@@ -7,6 +7,7 @@ public class UserResponse
     public string Role { get; set; } = string.Empty;
     public Guid? TenantId { get; set; }
     public string? TenantName { get; set; }
+    public List<Guid> BranchIds { get; set; } = new();
     public List<string> BranchNames { get; set; } = new();
     public string Status { get; set; } = string.Empty;
     public bool Is2faEnabled { get; set; }

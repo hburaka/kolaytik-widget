@@ -152,7 +152,7 @@
         {
             Role = user.Role,
             Status = user.Status,
-            BranchIds = new List<Guid>()
+            BranchIds = user.BranchIds.ToList()
         };
         var parameters = new DialogParameters<UserFormDialog>
         {
