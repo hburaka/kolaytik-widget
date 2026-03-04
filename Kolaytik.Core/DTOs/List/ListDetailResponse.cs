@@ -8,6 +8,7 @@ public class ListDetailResponse
     public string? Description { get; set; }
     public Guid TenantId { get; set; }
     public Guid? BranchId { get; set; }
+    public string? TenantName { get; set; }
     public string? BranchName { get; set; }
     public int ItemCount { get; set; }
     public DateTime CreatedAt { get; set; }

@@ -33,7 +33,19 @@
              SortMode="SortMode.None" Filterable="false" Dense="true">
     <Columns>
         <PropertyColumn Property="x => x.Name" Title="Liste Adı" />
-        <PropertyColumn Property="x => x.BranchName" Title="Şube" />
+        <PropertyColumn Property="x => x.TenantName" Title="Firma" />
+        <TemplateColumn Title="Şube">
+            <CellTemplate>
+                @if (context.Item.BranchName is not null)
+                {
+                    <MudText>@context.Item.BranchName</MudText>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary" Typo="Typo.body2">Firma geneli</MudText>
+                }
+            </CellTemplate>
+        </TemplateColumn>
         <PropertyColumn Property="x => x.ItemCount" Title="Eleman Sayısı" CellStyle="width:130px" />
         <PropertyColumn Property="x => x.CreatedAt" Title="Oluşturulma" Format="dd.MM.yyyy" CellStyle="width:130px" />
         <TemplateColumn Title="İşlemler" CellStyle="width:140px">

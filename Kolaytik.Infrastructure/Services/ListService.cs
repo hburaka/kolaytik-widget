@@ -48,6 +48,7 @@ public class ListService : IListService
                 Slug = l.Slug,
                 Description = l.Description,
                 TenantId = l.TenantId,
+                TenantName = l.Tenant != null ? l.Tenant.Name : null,
                 BranchId = l.BranchId,
                 BranchName = l.Branch != null ? l.Branch.Name : null,
                 ItemCount = l.Items.Count(i => !i.IsDeleted),
@@ -68,6 +69,7 @@ public class ListService : IListService
     public async Task<ListDetailResponse> GetListAsync(Guid id)
     {
         var list = await BuildListScope()
+            .Include(l => l.Tenant)
             .Include(l => l.Branch)
             .FirstOrDefaultAsync(l => l.Id == id)
             ?? throw new KeyNotFoundException("Liste bulunamadı.");
@@ -480,6 +482,7 @@ public class ListService : IListService
         Slug = l.Slug,
         Description = l.Description,
         TenantId = l.TenantId,
+        TenantName = l.Tenant?.Name,
         BranchId = l.BranchId,
         BranchName = l.Branch?.Name,
         ItemCount = l.Items.Count(i => !i.IsDeleted),
