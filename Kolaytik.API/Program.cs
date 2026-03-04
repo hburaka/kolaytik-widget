@@ -2,8 +2,10 @@ using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Kolaytik.API.Middleware;
+using Kolaytik.Core.DTOs.Common;
 using Kolaytik.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
@@ -47,7 +49,18 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(
-            new System.Text.Json.Serialization.JsonStringEnumConverter()));
+            new System.Text.Json.Serialization.JsonStringEnumConverter()))
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList();
+            return new BadRequestObjectResult(ApiResponse.Fail("Doğrulama hatası.", errors));
+        };
+    });
 
 // CORS
 builder.Services.AddCors(options =>
