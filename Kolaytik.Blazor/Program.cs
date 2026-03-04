@@ -38,6 +38,8 @@ builder.Services.AddScoped<IListService, ListService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IBranchService, BranchService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<ISectorService, SectorService>();
+builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 
 // MudBlazor
 builder.Services.AddMudServices();

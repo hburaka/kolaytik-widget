@@ -20,7 +20,14 @@
       "Bash(taskkill:*)",
       "Bash(cmd:*)",
       "Bash(powershell:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(while read pid)",
+      "Bash(do powershell -Command \"Stop-Process -Id $pid -Force\")",
+      "Bash(done)",
+      "Bash(start cmd:*)",
+      "Bash(start:*)",
+      "Bash(Get-Process dotnet:*)",
+      "Bash(__NEW_LINE_6c526a17071de469__ curl:*)"
     ]
   }
 }

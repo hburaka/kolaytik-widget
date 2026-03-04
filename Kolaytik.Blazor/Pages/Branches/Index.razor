@@ -131,6 +131,10 @@
                 Snackbar.Add("Şube güncellendi.", Severity.Success);
                 await LoadBranches();
             }
+            else
+            {
+                Snackbar.Add("Şube güncellenemedi.", Severity.Error);
+            }
         }
     }
 

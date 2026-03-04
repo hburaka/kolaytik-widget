@@ -12,7 +12,17 @@
             <MudTextField @bind-Value="Model!.Name" Label="Liste Adı" Variant="Variant.Outlined"
                           FullWidth="true" Class="mb-3" Required="true" />
             <MudTextField @bind-Value="Model.Description" Label="Açıklama" Variant="Variant.Outlined"
-                          FullWidth="true" Lines="3" />
+                          FullWidth="true" Class="mb-3" Lines="3" />
+            @if (Branches is { Count: > 0 })
+            {
+                <MudSelect T="Guid?" @bind-Value="Model.BranchId" Label="Şube (opsiyonel)"
+                           Variant="Variant.Outlined" FullWidth="true" Clearable="true">
+                    @foreach (var branch in Branches)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)branch.Id)">@branch.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
         }
     </DialogContent>
     <DialogActions>
@@ -25,8 +35,11 @@
     [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
 
     [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool IsGlobalAdmin { get; set; }
     [Parameter] public CreateListRequest? Model { get; set; }
     [Parameter] public UpdateListRequest? UpdateModel { get; set; }
+    [Parameter] public IList<TenantResponse>? Tenants { get; set; }
+    [Parameter] public IList<BranchResponse>? Branches { get; set; }
 
     void Submit()
     {
