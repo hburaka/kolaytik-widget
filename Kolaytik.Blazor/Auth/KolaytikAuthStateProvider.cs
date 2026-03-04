@@ -70,6 +70,15 @@ public class KolaytikAuthStateProvider : AuthenticationStateProvider
         return claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
     }
 
+    public async Task<Guid?> GetTenantIdAsync()
+    {
+        var token = await _localStorage.GetItemAsStringAsync("accessToken");
+        if (string.IsNullOrEmpty(token)) return null;
+        var claims = ParseClaimsFromJwt(token);
+        var tenantIdStr = claims.FirstOrDefault(c => c.Type == "tenant_id")?.Value;
+        return Guid.TryParse(tenantIdStr, out var id) ? id : null;
+    }
+
     private static IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
     {
         var payload = jwt.Split('.')[1];

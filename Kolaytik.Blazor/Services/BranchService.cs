@@ -18,6 +18,12 @@ public class BranchService : IBranchService
         return result?.Data;
     }
 
+    public async Task<BranchResponse?> GetBranchAsync(Guid id)
+    {
+        var result = await _api.GetAsync<BranchResponse>($"api/branches/{id}");
+        return result?.Data;
+    }
+
     public async Task<BranchResponse?> CreateBranchAsync(CreateBranchRequest request)
     {
         var result = await _api.PostAsync<BranchResponse>("api/branches", request);

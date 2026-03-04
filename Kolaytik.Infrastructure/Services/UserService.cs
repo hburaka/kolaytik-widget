@@ -102,18 +102,18 @@ public class UserService : IUserService
 
         await _db.Users.AddAsync(user);
 
-        if (request.BranchId.HasValue && tenantId.HasValue)
+        if (request.BranchIds.Count > 0 && tenantId.HasValue)
         {
-            var branchExists = await _db.Branches.AnyAsync(b =>
-                b.Id == request.BranchId.Value && b.TenantId == tenantId.Value);
-            if (!branchExists)
-                throw new ArgumentException("Şube bu firmaya ait değil.");
+            var validBranchIds = await _db.Branches
+                .Where(b => request.BranchIds.Contains(b.Id) && b.TenantId == tenantId.Value)
+                .Select(b => b.Id)
+                .ToListAsync();
 
-            await _db.UserBranches.AddAsync(new UserBranch
+            await _db.UserBranches.AddRangeAsync(validBranchIds.Select(branchId => new UserBranch
             {
                 UserId = user.Id,
-                BranchId = request.BranchId.Value
-            });
+                BranchId = branchId
+            }));
         }
 
         await _db.SaveChangesAsync();

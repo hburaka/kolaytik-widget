@@ -6,6 +6,7 @@ namespace Kolaytik.Blazor.Services;
 public interface IUserService
 {
     Task<PagedResult<UserResponse>?> GetUsersAsync(PagedRequest request);
+    Task<UserResponse?> GetUserAsync(Guid id);
     Task<UserResponse?> CreateUserAsync(CreateUserRequest request);
     Task<UserResponse?> UpdateUserAsync(Guid id, UpdateUserRequest request);
     Task<bool> DeleteUserAsync(Guid id);

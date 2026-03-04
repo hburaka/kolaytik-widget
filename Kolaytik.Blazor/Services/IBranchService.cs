@@ -6,6 +6,7 @@ namespace Kolaytik.Blazor.Services;
 public interface IBranchService
 {
     Task<PagedResult<BranchResponse>?> GetBranchesAsync(PagedRequest request);
+    Task<BranchResponse?> GetBranchAsync(Guid id);
     Task<BranchResponse?> CreateBranchAsync(CreateBranchRequest request);
     Task<BranchResponse?> UpdateBranchAsync(Guid id, UpdateBranchRequest request);
     Task<bool> DeleteBranchAsync(Guid id);

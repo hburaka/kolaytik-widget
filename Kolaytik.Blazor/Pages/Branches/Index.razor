@@ -4,6 +4,7 @@
 @inject ITenantService TenantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject KolaytikAuthStateProvider AuthStateProvider
 
 <PageTitle>Şubeler</PageTitle>
 
@@ -61,9 +62,15 @@
     private IList<TenantResponse> _tenants = new List<TenantResponse>();
     private bool _loading;
     private string _search = string.Empty;
+    private bool _isGlobalAdmin;
+    private Guid? _currentUserTenantId;
 
     protected override async Task OnInitializedAsync()
     {
+        var role = await AuthStateProvider.GetRoleAsync();
+        _isGlobalAdmin = role == "SuperAdmin" || role == "Admin";
+        _currentUserTenantId = await AuthStateProvider.GetTenantIdAsync();
+
         await LoadBranches();
         var tenantsResult = await TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 200 });
         _tenants = tenantsResult?.Items?.ToList() ?? new List<TenantResponse>();
@@ -87,7 +94,9 @@
         {
             { x => x.IsEdit, false },
             { x => x.Model, model },
-            { x => x.Tenants, _tenants }
+            { x => x.Tenants, _tenants },
+            { x => x.IsGlobalAdmin, _isGlobalAdmin },
+            { x => x.CurrentUserTenantId, _currentUserTenantId }
         };
         var dialog = await DialogService.ShowAsync<BranchFormDialog>("Yeni Şube", parameters);
         var result = await dialog.Result;

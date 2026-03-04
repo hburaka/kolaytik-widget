@@ -2,19 +2,23 @@
     <DialogContent>
         @if (!IsEdit)
         {
-            @if (Tenants is { Count: > 0 })
+            @if (IsGlobalAdmin && Tenants is { Count: > 0 })
             {
                 <MudSelect T="Guid?" @bind-Value="Model!.TenantId" Label="Firma" Variant="Variant.Outlined"
                            FullWidth="true" Class="mb-3" Required="true">
                     @foreach (var tenant in Tenants)
                     {
-                        <MudSelectItem T="Guid?" Value="@tenant.Id">@tenant.Name</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)tenant.Id)">@tenant.Name</MudSelectItem>
                     }
                 </MudSelect>
             }
+            else if (CurrentUserTenantId.HasValue)
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-3">Firma otomatik atandı.</MudAlert>
+            }
             <MudTextField @bind-Value="Model!.Name" Label="Şube Adı" Variant="Variant.Outlined"
                           FullWidth="true" Class="mb-3" Required="true" />
-            <MudSwitch @bind-Value="Model.IsActive" Color="Color.Primary" Label="Aktif" />
+            <MudSwitch @bind-Value="Model!.IsActive" Color="Color.Primary" Label="Aktif" />
         }
         else
         {
@@ -36,6 +40,16 @@
     [Parameter] public CreateBranchRequest? Model { get; set; }
     [Parameter] public UpdateBranchRequest? UpdateModel { get; set; }
     [Parameter] public IList<TenantResponse>? Tenants { get; set; }
+    [Parameter] public bool IsGlobalAdmin { get; set; }
+    [Parameter] public Guid? CurrentUserTenantId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (!IsEdit && Model is not null && CurrentUserTenantId.HasValue && !IsGlobalAdmin)
+        {
+            Model.TenantId = CurrentUserTenantId.Value;
+        }
+    }
 
     void Submit()
     {

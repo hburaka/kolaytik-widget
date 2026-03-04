@@ -5,6 +5,7 @@
 @inject IBranchService BranchService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject KolaytikAuthStateProvider AuthStateProvider
 
 <PageTitle>Kullanıcılar</PageTitle>
 
@@ -91,9 +92,13 @@
     private IList<BranchResponse> _branches = new List<BranchResponse>();
     private bool _loading;
     private string _search = string.Empty;
+    private bool _isGlobalAdmin;
 
     protected override async Task OnInitializedAsync()
     {
+        var role = await AuthStateProvider.GetRoleAsync();
+        _isGlobalAdmin = role == "SuperAdmin" || role == "Admin";
+
         await LoadUsers();
         var tenantsResult = await TenantService.GetTenantsAsync(new PagedRequest { Page = 1, PageSize = 200 });
         _tenants = tenantsResult?.Items?.ToList() ?? new List<TenantResponse>();
@@ -120,7 +125,8 @@
             { x => x.IsEdit, false },
             { x => x.Model, model },
             { x => x.Tenants, _tenants },
-            { x => x.Branches, _branches }
+            { x => x.Branches, _branches },
+            { x => x.IsGlobalAdmin, _isGlobalAdmin }
         };
         var dialog = await DialogService.ShowAsync<UserFormDialog>("Yeni Kullanıcı", parameters);
         var result = await dialog.Result;
@@ -152,7 +158,8 @@
         {
             { x => x.IsEdit, true },
             { x => x.UpdateModel, model },
-            { x => x.Branches, _branches }
+            { x => x.Branches, _branches },
+            { x => x.IsGlobalAdmin, _isGlobalAdmin }
         };
         var dialog = await DialogService.ShowAsync<UserFormDialog>("Kullanıcıyı Düzenle", parameters);
         var result = await dialog.Result;

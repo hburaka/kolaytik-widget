@@ -18,6 +18,12 @@ public class UserService : IUserService
         return result?.Data;
     }
 
+    public async Task<UserResponse?> GetUserAsync(Guid id)
+    {
+        var result = await _api.GetAsync<UserResponse>($"api/users/{id}");
+        return result?.Data;
+    }
+
     public async Task<UserResponse?> CreateUserAsync(CreateUserRequest request)
     {
         var result = await _api.PostAsync<UserResponse>("api/users", request);

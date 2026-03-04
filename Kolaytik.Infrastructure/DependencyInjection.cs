@@ -31,6 +31,9 @@ public static class DependencyInjection
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<IWidgetService, WidgetService>();
+        services.AddScoped<IWidgetConfigService, WidgetConfigService>();
+        services.AddScoped<ISectorService, SectorService>();
+        services.AddScoped<IApiKeyService, ApiKeyService>();
 
         services.AddHttpContextAccessor();
 

@@ -1,0 +1,93 @@
+<MudDialog>
+    <DialogContent>
+        @if (!IsEdit)
+        {
+            <MudTextField @bind-Value="Model!.Name" Label="Anahtar Adı" Variant="Variant.Outlined"
+                          FullWidth="true" Class="mb-3" Required="true" />
+            @if (Branches is { Count: > 0 })
+            {
+                <MudSelect T="Guid?" @bind-Value="Model.BranchId" Label="Şube (opsiyonel)"
+                           Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Clearable="true">
+                    @foreach (var branch in Branches)
+                    {
+                        <MudSelectItem T="Guid?" Value="@branch.Id">@branch.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            <MudNumericField @bind-Value="Model.RateLimitPerMinute" Label="Dakika Başı Limit"
+                             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="1000" />
+            <MudNumericField @bind-Value="Model.RateLimitPerDay" Label="Günlük Limit"
+                             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="100" Max="100000" />
+            <MudTextField @bind-Value="_allowedDomainsText" Label="İzin Verilen Domainler (virgülle ayırın)"
+                          Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+                          Placeholder="ornek.com, jotform.com" Lines="3" />
+        }
+        else
+        {
+            <MudTextField @bind-Value="UpdateModel!.Name" Label="Anahtar Adı" Variant="Variant.Outlined"
+                          FullWidth="true" Class="mb-3" Required="true" />
+            <MudSwitch @bind-Value="UpdateModel.IsActive" Color="Color.Primary" Label="Aktif" Class="mb-3" />
+            <MudNumericField @bind-Value="UpdateModel.RateLimitPerMinute" Label="Dakika Başı Limit"
+                             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="1" Max="1000" />
+            <MudNumericField @bind-Value="UpdateModel.RateLimitPerDay" Label="Günlük Limit"
+                             Variant="Variant.Outlined" FullWidth="true" Class="mb-3" Min="100" Max="100000" />
+            <MudTextField @bind-Value="_allowedDomainsText" Label="İzin Verilen Domainler (virgülle ayırın)"
+                          Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+                          Placeholder="ornek.com, jotform.com" Lines="3" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">İptal</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public CreateApiKeyRequest? Model { get; set; }
+    [Parameter] public UpdateApiKeyRequest? UpdateModel { get; set; }
+    [Parameter] public IList<BranchResponse>? Branches { get; set; }
+
+    private string _allowedDomainsText = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (IsEdit && UpdateModel is not null)
+        {
+            _allowedDomainsText = string.Join(", ", UpdateModel.AllowedDomains);
+        }
+        else if (!IsEdit && Model is not null)
+        {
+            _allowedDomainsText = string.Join(", ", Model.AllowedDomains);
+        }
+    }
+
+    private List<string> ParseDomains(string text)
+    {
+        return text
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(d => d.Trim())
+            .Where(d => !string.IsNullOrWhiteSpace(d))
+            .ToList();
+    }
+
+    void Submit()
+    {
+        if (IsEdit)
+        {
+            if (string.IsNullOrWhiteSpace(UpdateModel?.Name)) return;
+            UpdateModel.AllowedDomains = ParseDomains(_allowedDomainsText);
+            MudDialog.Close(DialogResult.Ok(UpdateModel));
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(Model?.Name)) return;
+            Model.AllowedDomains = ParseDomains(_allowedDomainsText);
+            MudDialog.Close(DialogResult.Ok(Model));
+        }
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}

@@ -8,5 +8,5 @@ public class CreateUserRequest
     public string Password { get; set; } = string.Empty;
     public UserRole Role { get; set; }
     public Guid? TenantId { get; set; }
-    public Guid? BranchId { get; set; }
+    public List<Guid> BranchIds { get; set; } = new();
 }
