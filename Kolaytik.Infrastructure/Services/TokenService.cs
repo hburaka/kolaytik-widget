@@ -5,6 +5,7 @@ using System.Text;
 using Kolaytik.Core.Entities;
 using Kolaytik.Core.Enums;
 using Kolaytik.Core.Interfaces.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -14,13 +15,15 @@ public class TokenService : ITokenService
 {
     private readonly IConfiguration _config;
     private readonly SymmetricSecurityKey _signingKey;
+    private readonly IMemoryCache _cache;
 
     // SuperAdmin ve Admin için daha kısa token süresi (4 saat)
     private static readonly HashSet<UserRole> ShortLivedRoles = [UserRole.SuperAdmin, UserRole.Admin];
 
-    public TokenService(IConfiguration config)
+    public TokenService(IConfiguration config, IMemoryCache cache)
     {
         _config = config;
+        _cache = cache;
         var key = config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
         _signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
     }
@@ -37,13 +40,9 @@ public class TokenService : ITokenService
 
     public string GeneratePreAuthToken(Guid userId)
     {
-        var claims = new[]
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("pre_auth", "true"),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-        return CreateJwt(claims, TimeSpan.FromMinutes(5));
+        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        _cache.Set($"preauth:{token}", userId, TimeSpan.FromMinutes(5));
+        return token;
     }
 
     public string GenerateRefreshToken()
@@ -67,9 +66,12 @@ public class TokenService : ITokenService
 
     public Guid? GetUserIdFromPreAuthToken(string token)
     {
-        var principal = ValidateToken(token, requirePreAuth: true);
-        var sub = principal?.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        return Guid.TryParse(sub, out var id) ? id : null;
+        if (_cache.TryGetValue($"preauth:{token}", out Guid userId))
+        {
+            _cache.Remove($"preauth:{token}"); // tek kullanım
+            return userId;
+        }
+        return null;
     }
 
     // ── private helpers ──────────────────────────────────────────────────────

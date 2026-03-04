@@ -23,7 +23,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<ITotpService, TotpService>();
-        services.AddScoped<ITokenService, TokenService>();
+        services.AddSingleton<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IListService, ListService>();
