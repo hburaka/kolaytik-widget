@@ -131,7 +131,19 @@ public class BranchService : IBranchService
         var tenantId = _currentUser.TenantId
             ?? throw new UnauthorizedAccessException("Tenant bilgisi eksik.");
 
-        return query.Where(b => b.TenantId == tenantId);
+        query = query.Where(b => b.TenantId == tenantId);
+
+        // BranchManager ve BranchUser sadece kendi atanmış şubelerini görebilir
+        if (_currentUser.Role is UserRole.BranchManager or UserRole.BranchUser)
+        {
+            var userBranchIds = _db.UserBranches
+                .Where(ub => ub.UserId == _currentUser.UserId)
+                .Select(ub => ub.BranchId);
+
+            query = query.Where(b => userBranchIds.Contains(b.Id));
+        }
+
+        return query;
     }
 
     private void AssertCanManageBranches()

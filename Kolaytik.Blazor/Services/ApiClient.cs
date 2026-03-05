@@ -60,6 +60,13 @@ public class ApiClient
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
+            // ASP.NET Core JWT middleware adds WWW-Authenticate on real token failures.
+            // Application-level UnauthorizedAccessException (wrong role, missing tenant)
+            // returns 401 via ExceptionMiddleware but WITHOUT this header.
+            // Only refresh for real JWT auth failures.
+            if (!response.Headers.WwwAuthenticate.Any())
+                return response;
+
             // Try refresh
             var refreshToken = await _localStorage.GetItemAsStringAsync("refreshToken");
             if (string.IsNullOrEmpty(refreshToken))
@@ -81,7 +88,8 @@ public class ApiClient
             request = BuildRequest(method, url, body, newToken);
             response = await _http.SendAsync(request);
 
-            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            if (response.StatusCode == HttpStatusCode.Unauthorized
+                && response.Headers.WwwAuthenticate.Any())
             {
                 await _localStorage.RemoveItemAsync("accessToken");
                 await _localStorage.RemoveItemAsync("refreshToken");
